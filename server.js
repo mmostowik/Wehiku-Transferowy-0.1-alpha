@@ -8,15 +8,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-// Obsługa plików statycznych (dla hostingu)
 app.use(express.static(path.join(__dirname)));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ============================================
-// 1. Konfiguracja
-// ============================================
 const TOP_10_LEAGUES = ['Premier League', 'LaLiga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Liga Portugal', 'Eredivisie', 'Süper Lig', 'Jupiler Pro League', 'Championship'];
 
 const PositionMap = {
@@ -46,6 +42,9 @@ try {
     const data = fs.readFileSync('./game_database.json', 'utf8');
     db = JSON.parse(data);
     
+    // Sprawdzamy, czy w bazie istnieje klucz sezonu 2025/2026
+    const targetActiveSeason = "2025/2026";
+    
     const playerPeakValues = {};
     for (const season in db) {
         for (const pos in db[season]) {
@@ -54,7 +53,9 @@ try {
                 if (p.historicalValue > playerPeakValues[p.id]) playerPeakValues[p.id] = p.historicalValue;
                 if (p.currentValue > playerPeakValues[p.id]) playerPeakValues[p.id] = p.currentValue;
                 for (const winSeas in p.transferWindowValues) {
-                    if (p.transferWindowValues[winSeas] > playerPeakValues[p.id]) playerPeakValues[p.id] = p.transferWindowValues[winSeas];
+                    if (p.transferWindowValues[winSeas] > playerPeakValues[p.id]) {
+                        playerPeakValues[p.id] = p.transferWindowValues[winSeas];
+                    }
                 }
             });
         }
@@ -64,17 +65,26 @@ try {
     for (const season in db) {
         for (const pos in db[season]) {
             const originalLength = db[season][pos].length;
-            db[season][pos] = db[season][pos].filter(p => 
-                playerPeakValues[p.id] >= 5000000 &&
-                TOP_10_LEAGUES.includes(p.stats.league) &&
-                p.currentValue > 0 &&
-                p.stats.age !== "?" 
-            );
+            const seasonStartYear = parseInt(season.split('/')[0]);
+
+            db[season][pos] = db[season][pos].filter(p => {
+                if (p.stats.age === "?") return false;
+                const currentAge = parseInt(p.stats.age) + (2026 - seasonStartYear);
+
+                // Warunek aktywności w 2025/2026: gracz musi mieć wycenę lub pojawić się w bazie w sezonie 2025/2026 
+                // albo jego currentValue musi pochodzić z tego okresu (posiada transferWindowValues dla 2025/2026 lub currentValue > 0)
+                const isActiveIn2025_2026 = (db["2025/2026"] && db["2025/2026"][pos] && db["2025/2026"][pos].some(activeP => activeP.id === p.id)) || (p.currentValue > 0);
+
+                return playerPeakValues[p.id] >= 5000000 &&
+                       TOP_10_LEAGUES.includes(p.stats.league) &&
+                       isActiveIn2025_2026 &&
+                       currentAge <= 29; // Odrzucamy weteranów 30+
+            });
             removedCount += (originalLength - db[season][pos].length);
             if (db[season][pos].length > 0) hasValidPlayers = true;
         }
     }
-    console.log(`Baza wczytana. Gotowe do gry! Usunięto ${removedCount} niepożądanych wpisów.`);
+    console.log(`Baza wczytana. Filtry aktywne (Sezon 2025/2026 + Wiek <= 29). Usunięto ${removedCount} wpisów.`);
 } catch (err) {
     console.error("BŁĄD BAZY DANYCH:", err);
     process.exit(1);
@@ -87,6 +97,23 @@ function broadcastActiveRooms() {
         .filter(r => r.state === 'lobby')
         .map(r => ({ id: r.id, hostName: r.players[0].username, playerCount: r.players.length }));
     io.emit('updateRoomList', openRooms);
+}
+
+function getSeasonYear(seasonStr) {
+    return parseInt(seasonStr.split('/')[0]);
+}
+
+function getValidTransferSeason(playerTeam, allSeasons) {
+    let minYear = 2050;
+    playerTeam.forEach(card => {
+        const y = getSeasonYear(card.boughtInSeason);
+        if (y < minYear) minYear = y;
+    });
+
+    const validSeasons = allSeasons.filter(s => getSeasonYear(s) >= minYear);
+    if (validSeasons.length === 0) return allSeasons[allSeasons.length - 1];
+
+    return validSeasons[Math.floor(Math.random() * validSeasons.length)];
 }
 
 function getRandomSeason() {
@@ -108,8 +135,8 @@ function fetchPlayersFromDB(roomId, season, acceptableSubPositions, count) {
 
     const seasonStartYear = parseInt(season.split('/')[0]); 
     possiblePlayers = possiblePlayers.filter(p => {
-        const currentAge = parseInt(p.stats.age) + (2024 - seasonStartYear); 
-        return currentAge <= 36 && !room.draftedIds.includes(p.id);
+        const currentAge = parseInt(p.stats.age) + (2026 - seasonStartYear); 
+        return currentAge <= 29 && !room.draftedIds.includes(p.id);
     });
 
     for (let i = possiblePlayers.length - 1; i > 0; i--) {
@@ -131,9 +158,6 @@ function getTurnPlayerId(room) {
     return room.players[index].id;
 }
 
-// ============================================
-// 2. Logika Socket.io
-// ============================================
 io.on('connection', (socket) => {
     broadcastActiveRooms();
 
@@ -142,7 +166,6 @@ io.on('connection', (socket) => {
         if (isProfane(username)) return socket.emit('errorMsg', 'Nick niedozwolony!');
 
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-        // Domyślny budżet startowy (domyślnie tryb medium/250M, zaktualizuje się przy starcie gry)
         rooms[roomId] = { id: roomId, host: socket.id, state: 'lobby', players: [], currentRound: 1, turnIndex: 0, draftedIds: [], isReverseTurn: false, defaultBudget: 250000000 };
         
         socket.join(roomId);
@@ -160,7 +183,6 @@ io.on('connection', (socket) => {
         if (rooms[roomId].state !== 'lobby') return socket.emit('errorMsg', 'Gra już trwa!');
 
         socket.join(roomId);
-        // Przypisujemy graczowi od razu domyślny budżet pokoju
         rooms[roomId].players.push({ id: socket.id, username: username, budget: rooms[roomId].defaultBudget, team: [] });
         
         socket.emit('joinSuccess', { roomId });
@@ -169,14 +191,13 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', ({ roomId, modeKey }) => {
-        if (!hasValidPlayers) return socket.emit('errorMsg', 'Błąd: Baza danych jest pusta. Sprawdź pliki JSON.');
+        if (!hasValidPlayers) return socket.emit('errorMsg', 'Błąd: Baza danych jest pusta.');
         const room = rooms[roomId];
         if (room.host !== socket.id) return;
 
         room.mode = GameModes[modeKey] || GameModes['medium'];
         room.totalRounds = room.mode.draftOrder.length;
         
-        // Aktualizujemy budżety graczy zgodnie z wybranym trybem gry
         room.defaultBudget = room.mode.budget;
         room.players.forEach(p => p.budget = room.mode.budget);
         
@@ -206,7 +227,6 @@ io.on('connection', (socket) => {
             room.pool.splice(playerToBuyIndex, 1);
             room.turnIndex++;
             
-            // Wysyłamy zaktualizowane dane gracza (w tym nowy budżet) natychmiast po zakupie
             socket.emit('updateMyData', currentPlayer);
 
             if (room.turnIndex >= room.players.length) {
@@ -238,13 +258,16 @@ io.on('connection', (socket) => {
 
         if (playerIndex !== -1) {
             const card = player.team[playerIndex];
-            const winVal = card.transferWindowValues[room.currentSeason];
-            const newPrice = (winVal !== undefined && winVal > 0) ? winVal : Math.floor(card.historicalValue / 2);
+            let newPrice = card.transferWindowValues[room.currentSeason];
+            if (newPrice === undefined || newPrice <= 0) {
+                const allVals = Object.values(card.transferWindowValues);
+                newPrice = allVals.length > 0 ? allVals[0] : card.historicalValue;
+            }
             
             player.budget += newPrice;
             player.team.splice(playerIndex, 1);
             
-            io.to(roomId).emit('playerSold', { msg: `🔥 ${player.username} sprzedał zawodnika ${card.realName} za ${(newPrice/1000000).toFixed(1)}M €!` });
+            io.to(roomId).emit('playerSold', { msg: `🔥 ${player.username} sprzedał ${card.realName} za ${(newPrice/1000000).toFixed(1)}M €!` });
             socket.emit('updateMyData', player);
         }
     });
@@ -278,7 +301,6 @@ function startNextRound(roomId) {
     room.currentSeason = getRandomSeason();
     
     const requiredPositionCode = room.mode.draftOrder[room.currentRound - 1];
-    
     let totalCardsToFetch = 5;
     if (room.players.length >= 4) totalCardsToFetch = 7;
 
@@ -310,7 +332,9 @@ function emitGameState(roomId) {
 function startTransferWindow(roomId) {
     const room = rooms[roomId];
     room.state = 'transfer';
-    room.currentSeason = getRandomSeason(); 
+    const allSeasons = Object.keys(db);
+    room.currentSeason = getValidTransferSeason(room.players[0].team, allSeasons); 
+
     io.to(roomId).emit('transferWindowOpen', { season: room.currentSeason, hostId: room.host });
 }
 
@@ -357,7 +381,6 @@ function endGame(roomId) {
     io.to(roomId).emit('gameOver', { players: room.players });
 }
 
-// Obsługa portu w środowiskach chmurowych
 const port = process.env.PORT || 3000;
 server.listen(port, () => {
     console.log(`Serwer działa na porcie ${port}!`);
