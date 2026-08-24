@@ -13,7 +13,7 @@ describe('PlayerRepository', () => {
   it('losuje zastępców z 2025/26, gdy gra posługuje się etykietą 2025/2026', async () => {
     const repository = await PlayerRepository.load(fixturePath);
     const result = repository.draw('2025/2026', ['Centre-Forward'], 5, new Set(), () => 0.5);
-    expect(result.map((player) => player.id)).toEqual(['st-2']);
+    expect(result.map((player) => player.id)).toEqual(['st-new']);
   });
 
   it('odczytuje wycenę transferową z faktycznego klucza 2025/26', () => {

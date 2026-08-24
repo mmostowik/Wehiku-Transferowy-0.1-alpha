@@ -1,5 +1,7 @@
 # Wehikuł Transferowy
 
+Aktualna wersja: **0.2.0-alpha.1**.
+
 Wieloosobowa, przeglądarkowa gra draftowa o budowaniu najcenniejszego składu piłkarskiego. Gracze wybierają ukryte karty z sezonów historycznych, handlują nimi w oknach transferowych 2025/2026, wybierają kapitana i rywalizują wartością końcową zespołu.
 
 ## Stack
@@ -61,4 +63,13 @@ Najważniejszym modułem jest `GameEngine`. Jego interface przyjmuje zamiary gra
 - `NODE_ENV=production` — serwowanie gotowego klienta z `dist/client`.
 - `GAME_DATABASE_PATH` — opcjonalna, bezwzględna ścieżka do bazy zawodników.
 
-Stan pokojów nadal znajduje się w pamięci procesu, zgodnie z zachowaniem wersji alpha. Kolejnym naturalnym etapem rozwoju jest adapter trwałego przechowywania oraz mechanizm ponownego dołączania po utracie połączenia.
+Stan pokojów nadal znajduje się w pamięci procesu, zgodnie z zachowaniem wersji alpha. Kolejnym naturalnym etapem rozwoju jest adapter trwałego przechowywania, dzięki któremu pokoje przetrwają restart procesu.
+
+## Zasady odporności rozgrywki
+
+- gracz może pominąć wybór w drafcie i zakończyć grę z mniejszym składem,
+- sprzedaż nie wymusza zakupu zastępcy, a niski budżet jest sygnalizowany przed transakcją,
+- rynek zastępczy nie ujawnia nazwisk; zakup zostaje ujawniony po zamknięciu okna,
+- okno transferowe zamyka jednogłośne głosowanie aktywnych graczy,
+- rozłączenie wstrzymuje grę na trzy minuty i umożliwia wznowienie sesji,
+- po upływie czasu host decyduje o dalszym oczekiwaniu lub usunięciu gracza.

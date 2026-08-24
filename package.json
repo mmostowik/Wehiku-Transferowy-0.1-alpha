@@ -1,10 +1,12 @@
 {
   "name": "wehikul-transferowy",
-  "version": "0.1.4-alpha",
+  "version": "0.2.0-alpha.1",
   "private": true,
   "type": "module",
   "description": "Wieloosobowa piłkarska gra draftowa",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "build": "tsc -p tsconfig.server.json && vite build",

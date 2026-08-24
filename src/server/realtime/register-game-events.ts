@@ -1,7 +1,7 @@
 import type { Server, Socket } from 'socket.io';
 import { z } from 'zod';
 import type { ClientToServerEvents, ServerToClientEvents } from '../../shared/contracts.js';
-import type { GameEngine, GameEvent } from '../domain/game-engine.js';
+import { GameEngine, type GameEvent } from '../domain/game-engine.js';
 
 type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -34,6 +34,15 @@ export function registerGameEvents(io: GameServer, engine: GameEngine): void {
       });
     });
 
+    socket.on('resumeGame', (raw) => {
+      safely(socket, () => {
+        const payload = z.object({ roomId: roomIdSchema, resumeToken: identifierSchema }).parse(raw);
+        const events = engine.resumeGame(socket.id, payload.roomId, payload.resumeToken);
+        void socket.join(payload.roomId);
+        dispatchAll(io, events);
+      });
+    });
+
     socket.on('startGame', (raw) => {
       safely(socket, () => {
         const payload = z.object({ roomId: roomIdSchema, modeKey: gameModeSchema }).parse(raw);
@@ -46,6 +55,10 @@ export function registerGameEvents(io: GameServer, engine: GameEngine): void {
         const payload = z.object({ roomId: roomIdSchema, sessionPickId: identifierSchema }).parse(raw);
         dispatchAll(io, engine.pickPlayer(socket.id, payload.roomId, payload.sessionPickId));
       });
+    });
+
+    socket.on('skipPick', (rawRoomId) => {
+      safely(socket, () => dispatchAll(io, engine.skipPick(socket.id, roomIdSchema.parse(rawRoomId))));
     });
 
     socket.on('sellPlayer', (raw) => {
@@ -62,10 +75,22 @@ export function registerGameEvents(io: GameServer, engine: GameEngine): void {
       });
     });
 
-    socket.on('endTransferWindow', (rawRoomId) => {
+    socket.on('declineReplacement', (rawRoomId) => {
+      safely(socket, () => dispatchAll(io, engine.declineReplacement(socket.id, roomIdSchema.parse(rawRoomId))));
+    });
+
+    socket.on('setTransferReady', (rawRoomId) => {
+      safely(socket, () => dispatchAll(io, engine.setTransferReady(socket.id, roomIdSchema.parse(rawRoomId))));
+    });
+
+    socket.on('resolveDisconnect', (raw) => {
       safely(socket, () => {
-        const roomId = roomIdSchema.parse(rawRoomId);
-        dispatchAll(io, engine.endTransferWindow(socket.id, roomId));
+        const payload = z.object({ roomId: roomIdSchema, playerId: identifierSchema, action: z.enum(['remove', 'wait']) }).parse(raw);
+        dispatchAll(io, engine.resolveDisconnect(socket.id, payload.roomId, payload.playerId, payload.action));
+        if (payload.action === 'wait') {
+          const timer = setTimeout(() => dispatchAll(io, engine.expirePlayerDisconnect(payload.roomId, payload.playerId)), GameEngine.reconnectGraceMs);
+          timer.unref();
+        }
       });
     });
 
@@ -76,7 +101,12 @@ export function registerGameEvents(io: GameServer, engine: GameEngine): void {
       });
     });
 
-    socket.on('disconnect', () => dispatchAll(io, engine.disconnect(socket.id)));
+    socket.on('disconnect', () => {
+      const disconnectedSocketId = socket.id;
+      dispatchAll(io, engine.disconnect(disconnectedSocketId));
+      const timer = setTimeout(() => dispatchAll(io, engine.expireDisconnect(disconnectedSocketId)), GameEngine.reconnectGraceMs);
+      timer.unref();
+    });
   });
 }
 
@@ -102,14 +132,17 @@ function dispatch(io: GameServer, event: GameEvent): void {
 
   switch (event.name) {
     case 'updateRoomList': target.emit('updateRoomList', event.payload); break;
-    case 'joinSuccess': target.emit('joinSuccess', event.payload as { roomId: string }); break;
+    case 'joinSuccess': target.emit('joinSuccess', event.payload as Parameters<ServerToClientEvents['joinSuccess']>[0]); break;
     case 'updateLobby': target.emit('updateLobby', event.payload as Parameters<ServerToClientEvents['updateLobby']>[0]); break;
     case 'newTurn': target.emit('newTurn', event.payload as Parameters<ServerToClientEvents['newTurn']>[0]); break;
     case 'updateMyData': target.emit('updateMyData', event.payload as Parameters<ServerToClientEvents['updateMyData']>[0]); break;
     case 'transferWindowOpen': target.emit('transferWindowOpen', event.payload as Parameters<ServerToClientEvents['transferWindowOpen']>[0]); break;
     case 'showReplacementModal': target.emit('showReplacementModal', event.payload as Parameters<ServerToClientEvents['showReplacementModal']>[0]); break;
     case 'closeReplacementDraft': target.emit('closeReplacementDraft'); break;
-    case 'playerSold': target.emit('playerSold', event.payload as Parameters<ServerToClientEvents['playerSold']>[0]); break;
+    case 'transferLog': target.emit('transferLog', event.payload as Parameters<ServerToClientEvents['transferLog']>[0]); break;
+    case 'gamePaused': target.emit('gamePaused', event.payload as Parameters<ServerToClientEvents['gamePaused']>[0]); break;
+    case 'gameResumed': target.emit('gameResumed', event.payload as Parameters<ServerToClientEvents['gameResumed']>[0]); break;
+    case 'disconnectDecision': target.emit('disconnectDecision', event.payload as Parameters<ServerToClientEvents['disconnectDecision']>[0]); break;
     case 'startCaptainSelection': target.emit('startCaptainSelection', event.payload as Parameters<ServerToClientEvents['startCaptainSelection']>[0]); break;
     case 'gameOver': target.emit('gameOver', event.payload as Parameters<ServerToClientEvents['gameOver']>[0]); break;
   }
