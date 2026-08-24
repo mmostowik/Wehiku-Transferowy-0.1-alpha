@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
-    <title>Wehikuł Transferowy 0.1.3-alpha</title>
+    <title>Wehikuł Transferowy 0.1.4-alpha</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -58,7 +58,7 @@
 <body>
     <div class="main-content">
         <button class="btn-info" onclick="toggleTutorial(true)">Jak grać?</button>
-        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.3-alpha</span></h1>
+        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.4-alpha</span></h1>
         
         <div id="login" class="panel">
             <h2 style="color: #00e676 !important;">Wybierz swój Nick</h2>
@@ -79,7 +79,7 @@
             <div class="modal-content">
                 <h2 style="color: #ffd700 !important; margin-top:0;">Jak grać?</h2>
                 <p>1. <b>Cel:</b> Zbuduj najcenniejszy skład na podstawie wycen z <b>sezonu 2025/2026</b>.</p>
-                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny i 3 statystyki.</p>
+                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny i statystyki.</p>
                 <p>3. <b>Okienka Transferowe:</b> Poznaj tożsamość graczy i wycenę z 2025/2026. Sprzedaż daje budżet i otwiera rynek zastępczy.</p>
                 <p>4. <b>Punktacja:</b> Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
                 <div style="text-align:center; margin-top:20px;">
@@ -88,7 +88,7 @@
             </div>
         </div>
 
-        <!-- NAPRAWIONY MODAL ZASTĘPCZY -->
+        <!-- MODAL ZASTĘPCZY -->
         <div id="replacementModal" class="hidden">
             <div class="modal-content" style="max-width: 800px; text-align: center;">
                 <h2 style="color: #00e676 !important;">Rynek Zastępczy (Sezon 2025/2026)</h2>
@@ -154,7 +154,7 @@
     </div>
 
     <footer>
-        Wehikuł Transferowy v0.1.3-alpha | Stworzone przez: Mateusz Mostowik
+        Wehikuł Transferowy v0.1.4-alpha | Stworzone przez: Mateusz Mostowik
     </footer>
 
     <div id="overlay" class="hidden">
@@ -359,7 +359,7 @@
             }
         }
 
-        // NAPRAWIONE: Nasłuchiwanie na otwarcie okna zastępczego
+        // NAPRAWIONE: Obsługa otwarcia okna zastępczego z serwera
         socket.on('showReplacementModal', (pool) => {
             const modal = document.getElementById('replacementModal');
             const container = document.getElementById('replacementPoolContainer');
