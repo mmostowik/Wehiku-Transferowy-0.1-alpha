@@ -1,0 +1,18 @@
+{
+  "2015/16": {
+    "Goalkeeper": [
+      { "id": "gk-1", "realName": "Bramkarz", "stats": { "age": 20, "league": "Premier League", "minutesPlayed": 3000, "yellowCards": 1 }, "historicalValue": 10000000, "transferWindowValues": { "2025/26": 15000000 }, "currentValue": 15000000 }
+    ],
+    "Centre-Forward": [
+      { "id": "st-1", "realName": "Napastnik", "stats": { "age": 20, "league": "Premier League", "goals": 15, "assists": 4, "minutesPlayed": 2500, "yellowCards": 2 }, "historicalValue": 12000000, "transferWindowValues": { "2025/26": 18000000 }, "currentValue": 18000000 }
+    ]
+  },
+  "2025/26": {
+    "Goalkeeper": [
+      { "id": "gk-2", "realName": "Nowy Bramkarz", "stats": { "age": 25, "league": "LaLiga", "minutesPlayed": 3100, "yellowCards": 0 }, "historicalValue": 20000000, "transferWindowValues": { "2025/26": 20000000 }, "currentValue": 20000000 }
+    ],
+    "Centre-Forward": [
+      { "id": "st-2", "realName": "Nowy Napastnik", "stats": { "age": 24, "league": "Serie A", "goals": 20, "assists": 5, "minutesPlayed": 2800, "yellowCards": 3 }, "historicalValue": 25000000, "transferWindowValues": { "2025/26": 25000000 }, "currentValue": 25000000 }
+    ]
+  }
+}
