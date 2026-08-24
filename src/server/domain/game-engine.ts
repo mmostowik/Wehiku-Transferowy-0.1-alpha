@@ -187,7 +187,11 @@ export class GameEngine {
 
     const position = card.assignedPosition ?? 'CM';
     const excluded = new Set(player.team.map((candidate) => candidate.id));
-    const pool = this.players.draw(TRANSFER_SEASON_DISPLAY, POSITION_MAP[position], 5, excluded, this.random);
+    
+    // Losowanie archiwalnego sezonu dla puli zastępców
+    const replacementSeason = this.players.randomSeason(this.random);
+    const pool = this.players.draw(replacementSeason, POSITION_MAP[position], 5, excluded, this.random);
+    
     room.replacementPools.set(player.id, pool);
     room.replacementPositions.set(player.id, position);
     return [
