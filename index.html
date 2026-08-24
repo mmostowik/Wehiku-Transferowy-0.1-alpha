@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
-    <title>Wehikuł Transferowy 0.1-alpha</title>
+    <title>Wehikuł Transferowy 0.1.1-alpha</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -48,7 +48,7 @@
         th { background: rgba(0, 230, 118, 0.2) !important; color: var(--primary) !important; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--primary) !important; }
         tr:last-child td { border-bottom: none !important; }
         tr:hover td { background: rgba(255,255,255,0.05) !important; }
-        #overlay, #tutorialModal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85) !important; backdrop-filter: blur(5px); z-index: 1000; display:flex; justify-content:center; align-items:center; }
+        #overlay, #tutorialModal, #replacementModal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85) !important; backdrop-filter: blur(5px); z-index: 1000; display:flex; justify-content:center; align-items:center; }
         #overlayMsg { font-size: 2.5em; color: #fff !important; text-align: center; padding: 40px; background: linear-gradient(145deg, #111, #222) !important; border: 2px solid var(--primary) !important; border-radius: 20px; box-shadow: 0 0 40px rgba(0,230,118,0.4); }
         .modal-content { background: #222 !important; padding: 30px; border-radius: 15px; border: 1px solid #444; max-width: 600px; text-align: left; }
         .main-content { flex: 1; }
@@ -58,7 +58,7 @@
 <body>
     <div class="main-content">
         <button class="btn-info" onclick="toggleTutorial(true)">Jak grać?</button>
-        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1-alpha</span></h1>
+        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.1-alpha</span></h1>
         
         <div id="login" class="panel">
             <h2 style="color: #00e676 !important;">Wybierz swój Nick</h2>
@@ -78,14 +78,21 @@
         <div id="tutorialModal" class="hidden">
             <div class="modal-content">
                 <h2 style="color: #ffd700 !important; margin-top:0;">Jak grać?</h2>
-                <p>1. <b>Cel:</b> Zbuduj najdroższy skład na podstawie wycen z Transfermarkt.</p>
-                <p>2. <b>Draft:</b> W każdej rundzie losowany jest inny sezon historyczny. Otrzymujesz pulę anonimowych graczy, o znanej cenie, lidze i statystykach. Ty decydujesz, w kogo inwestujesz budżet!</p>
-                <p>3. <b>Snake Draft:</b> Wybory następują po kolei. W rundach parzystych kolejność się odwraca.</p>
-                <p>4. <b>Okienka Transferowe:</b> Ujawnimy tożsamość Twoich piłkarzy! Zobaczysz, jak zmieniła się ich cena od czasu zakupu i możesz ich sprzedać, zasilając budżet (uwaga: grasz potem w osłabieniu).</p>
-                <p>5. <b>Bonusy na koniec:</b><br>- <b style="color: cyan !important;">Synergia:</b> Jeśli masz min. 3 graczy grających dziś w tej samej lidze, dostaniesz +15% wartości składu.<br>- <b style="color: gold !important;">Kapitan:</b> Na końcu wybierasz gracza, którego dzisiejsza wartość jest liczona podwójnie.</p>
+                <p>1. <b>Cel:</b> Zbuduj najdroższy skład na podstawie wycen z Transfermarkt w sezonie 2025/2026.</p>
+                <p>2. <b>Draft:</b> W każdej rundzie losowany jest inny sezon historyczny. Otrzymujesz pulę anonimowych graczy, o znanej cenie, lidze i statystykach.</p>
+                <p>3. <b>Okienka Transferowe:</b> W okienku wyceny Twoich piłkarzy są sprawdzane na sezon <b>2025/2026</b>. Jeśli kogoś sprzedasz, zyskujesz budżet i możesz od razu dokupić nowego zawodnika z tej samej pozycji!</p>
                 <div style="text-align:center; margin-top:20px;">
                     <button onclick="toggleTutorial(false)">Zamknij</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- MODAL DLA ZAKUPU ZASTĘPCZEGO PO SPRZEDAŻY -->
+        <div id="replacementModal" class="hidden">
+            <div class="modal-content" style="max-width: 800px; text-align: center;">
+                <h2 style="color: #00e676 !important;">Rynek Zastępczy (Sezon 2025/2026)</h2>
+                <p style="color: #aaa;">Sprzedałeś zawodnika. Wybierz nowego piłkarza z puli:</p>
+                <div id="replacementPoolContainer" class="card-container"></div>
             </div>
         </div>
 
@@ -127,8 +134,8 @@
 
             <div id="transferZone" class="hidden">
                 <h2 style="color: #00C9FF !important; font-size: 2em;">❄️ Okienko Transferowe ❄️</h2>
-                <p>Sezon na rynku: <b id="transferSeason" style="color: #ffd700 !important; font-size: 1.2em;"></b></p>
-                <p style="color: #aaa !important;">Ceny na rynku uległy zmianie. Twoi zawodnicy zostali <b>Odkryci!</b><br>Możesz teraz kogoś sprzedać, zasilając budżet, lub zachować ich do samego końca.</p>
+                <p>Sezon na rynku: <b id="transferSeason" style="color: #ffd700 !important; font-size: 1.2em;">2025/2026</b></p>
+                <p style="color: #aaa !important;">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026. Możesz kogoś sprzedać i od razu dokupić zastępcę.</p>
                 
                 <div id="myTransferTeam" class="card-container"></div>
                 
@@ -139,14 +146,14 @@
             
             <div id="captainZone" class="hidden">
                 <h2 style="color: #ffd700 !important; font-size: 2em;">Wybierz Kapitana 👑</h2>
-                <p style="color: #ccc !important;">Wszyscy ujawnieni! Kliknij kartę zawodnika. Jego <b>dzisiejsza</b> (ostateczna) wartość rynkowa zostanie podwojona!</p>
+                <p style="color: #ccc !important;">Wszyscy ujawnieni! Kliknij kartę zawodnika. Jego ostateczna wartość rynkowa zostanie podwojona!</p>
                 <div id="myCaptainTeam" class="card-container"></div>
             </div>
         </div>
     </div>
 
     <footer>
-        Wehikuł Transferowy v0.1-alpha | Stworzone przez: Mateusz Mostowik
+        Wehikuł Transferowy v0.1.1-alpha | Stworzone przez: Mateusz Mostowik
     </footer>
 
     <div id="overlay" class="hidden">
@@ -297,21 +304,20 @@
 
         socket.on('transferWindowOpen', (data) => {
             document.getElementById('draftZone').classList.add('hidden');
+            document.getElementById('transferZone').classList.add('hidden');
+            document.getElementById('captainZone').classList.add('hidden');
             document.getElementById('transferZone').classList.remove('hidden');
-            document.getElementById('transferSeason').innerText = data.season;
+            document.getElementById('transferSeason').innerText = "2025/2026";
             
             if (data.hostId === myId) document.getElementById('endTransferBtn').classList.remove('hidden');
             socket.emit('sellPlayer', { roomId: 'none', playerId: 'none' }); 
         });
 
         function renderTransferTeam(team) {
-            const currentTransferSeason = document.getElementById('transferSeason').innerText;
-            
             document.getElementById('myTransferTeam').innerHTML = team.map(c => {
-                let winVal = c.transferWindowValues[currentTransferSeason];
+                let winVal = c.transferWindowValues["2025/2026"];
                 if (winVal === undefined || winVal <= 0) {
-                    const allVals = Object.values(c.transferWindowValues);
-                    winVal = allVals.length > 0 ? allVals[0] : c.historicalValue;
+                    winVal = c.currentValue > 0 ? c.currentValue : c.historicalValue;
                 }
                 
                 const profit = winVal - c.historicalValue;
@@ -324,7 +330,7 @@
                     <p style="color: #ccc !important;">Kupiony w: <b style="color: #fff !important;">${c.boughtInSeason}</b></p>
                     <p style="color: #ccc !important;">Kupiony za: <b style="color: #fff !important;">${(c.historicalValue / 1000000).toFixed(1)}M €</b></p>
                     <p style="margin-top:15px; border-top: 1px solid #444; padding-top: 15px; color: #ccc !important;">
-                        Wycena (${currentTransferSeason}):<br>
+                        Wycena (2025/2026):<br>
                         <b style="color: ${color} !important; font-size: 1.3em;">${(winVal / 1000000).toFixed(1)}M €</b>
                     </p>
                     <button class="btn-sell" onclick="sellCard('${c.id}')">Sprzedaj Kartę</button>
@@ -334,10 +340,42 @@
         }
 
         function sellCard(playerId) {
-            if(confirm('Na pewno chcesz sprzedać tego zawodnika za podaną wycenę? Zyskasz pieniądze, ale osłabisz ostateczny skład!')) {
+            if(confirm('Na pewno chcesz sprzedać tego zawodnika za jego wycenę z 2025/2026? Otrzymasz budżet i wybierzesz zastępcę!')) {
                 socket.emit('sellPlayer', { roomId: currentRoomId, playerId });
             }
         }
+
+        // Obsługa otwarcia okienka zakupu zastępczego
+        socket.on('openReplacementDraft', (data) => {
+            socket.emit('getReplacementPool', { roomId: currentRoomId, position: data.position });
+        });
+
+        socket.on('showReplacementModal', (pool) => {
+            const modal = document.getElementById('replacementModal');
+            const container = document.getElementById('replacementPoolContainer');
+            modal.classList.remove('hidden');
+
+            container.innerHTML = pool.map(c => {
+                let price = c.transferWindowValues["2025/2026"] || c.historicalValue;
+                const canAfford = myBudget >= price;
+                return `
+                <div class="card ${canAfford ? '' : 'disabled-card'}" onclick="${canAfford ? `pickReplacement('${c.sessionPickId}')` : `alert('Nie stać Cię!')`}">
+                    <h3 style="color: #ffd700 !important; font-size: 1.1em;">${c.realName}</h3>
+                    <p>Liga: <b>${c.stats.league}</b></p>
+                    <p>Wiek: <b>${c.stats.age}</b></p>
+                    <p style="margin-top:10px; color: #00e676;">Cena: <b>${(price / 1000000).toFixed(1)}M €</b></p>
+                </div>
+                `;
+            }).join('');
+        });
+
+        function pickReplacement(sessionPickId) {
+            socket.emit('pickReplacement', { roomId: currentRoomId, sessionPickId });
+        }
+
+        socket.on('closeReplacementDraft', () => {
+            document.getElementById('replacementModal').classList.add('hidden');
+        });
 
         socket.on('playerSold', (data) => {
             const ov = document.getElementById('overlay');
@@ -353,6 +391,7 @@
         socket.on('startCaptainSelection', (data) => {
             document.getElementById('draftZone').classList.add('hidden');
             document.getElementById('transferZone').classList.add('hidden');
+            document.getElementById('captainZone').classList.add('hidden');
             document.getElementById('captainZone').classList.remove('hidden');
             
             const me = data.players.find(p => p.id === myId);

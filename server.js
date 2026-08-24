@@ -42,9 +42,6 @@ try {
     const data = fs.readFileSync('./game_database.json', 'utf8');
     db = JSON.parse(data);
     
-    // Sprawdzamy, czy w bazie istnieje klucz sezonu 2025/2026
-    const targetActiveSeason = "2025/2026";
-    
     const playerPeakValues = {};
     for (const season in db) {
         for (const pos in db[season]) {
@@ -71,20 +68,16 @@ try {
                 if (p.stats.age === "?") return false;
                 const currentAge = parseInt(p.stats.age) + (2026 - seasonStartYear);
 
-                // Warunek aktywności w 2025/2026: gracz musi mieć wycenę lub pojawić się w bazie w sezonie 2025/2026 
-                // albo jego currentValue musi pochodzić z tego okresu (posiada transferWindowValues dla 2025/2026 lub currentValue > 0)
-                const isActiveIn2025_2026 = (db["2025/2026"] && db["2025/2026"][pos] && db["2025/2026"][pos].some(activeP => activeP.id === p.id)) || (p.currentValue > 0);
-
                 return playerPeakValues[p.id] >= 5000000 &&
                        TOP_10_LEAGUES.includes(p.stats.league) &&
-                       isActiveIn2025_2026 &&
-                       currentAge <= 29; // Odrzucamy weteranów 30+
+                       p.currentValue > 0 &&
+                       currentAge <= 32; 
             });
             removedCount += (originalLength - db[season][pos].length);
             if (db[season][pos].length > 0) hasValidPlayers = true;
         }
     }
-    console.log(`Baza wczytana. Filtry aktywne (Sezon 2025/2026 + Wiek <= 29). Usunięto ${removedCount} wpisów.`);
+    console.log(`Baza wczytana. Usunięto ${removedCount} wpisów.`);
 } catch (err) {
     console.error("BŁĄD BAZY DANYCH:", err);
     process.exit(1);
@@ -97,23 +90,6 @@ function broadcastActiveRooms() {
         .filter(r => r.state === 'lobby')
         .map(r => ({ id: r.id, hostName: r.players[0].username, playerCount: r.players.length }));
     io.emit('updateRoomList', openRooms);
-}
-
-function getSeasonYear(seasonStr) {
-    return parseInt(seasonStr.split('/')[0]);
-}
-
-function getValidTransferSeason(playerTeam, allSeasons) {
-    let minYear = 2050;
-    playerTeam.forEach(card => {
-        const y = getSeasonYear(card.boughtInSeason);
-        if (y < minYear) minYear = y;
-    });
-
-    const validSeasons = allSeasons.filter(s => getSeasonYear(s) >= minYear);
-    if (validSeasons.length === 0) return allSeasons[allSeasons.length - 1];
-
-    return validSeasons[Math.floor(Math.random() * validSeasons.length)];
 }
 
 function getRandomSeason() {
@@ -136,7 +112,7 @@ function fetchPlayersFromDB(roomId, season, acceptableSubPositions, count) {
     const seasonStartYear = parseInt(season.split('/')[0]); 
     possiblePlayers = possiblePlayers.filter(p => {
         const currentAge = parseInt(p.stats.age) + (2026 - seasonStartYear); 
-        return currentAge <= 29 && !room.draftedIds.includes(p.id);
+        return currentAge <= 32 && !room.draftedIds.includes(p.id);
     });
 
     for (let i = possiblePlayers.length - 1; i > 0; i--) {
@@ -221,7 +197,9 @@ io.on('connection', (socket) => {
 
         if (currentPlayer.budget >= playerToBuy.historicalValue) {
             currentPlayer.budget -= playerToBuy.historicalValue;
-            currentPlayer.team.push({ ...playerToBuy, boughtInSeason: room.currentSeason });
+            // Zapamiętujemy dokładną pozycję sub_position, np. "Central Midfield" żeby wiedzieć po jakim okienku zaoferować zastępstwo
+            const assignedPosition = playerToBuy.sub_position || room.mode.draftOrder[room.currentRound - 1];
+            currentPlayer.team.push({ ...playerToBuy, boughtInSeason: room.currentSeason, assignedPosition: assignedPosition });
             room.draftedIds.push(playerToBuy.id);
             
             room.pool.splice(playerToBuyIndex, 1);
@@ -249,6 +227,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // SPRZEDAŻ ZAWODNIKA I URUCHOMIENIE DODATKOWEGO DRAFTU NA TĘ SAMĄ POZYCJĘ
     socket.on('sellPlayer', ({ roomId, playerId }) => {
         const room = rooms[roomId];
         if (!room || room.state !== 'transfer') return;
@@ -258,17 +237,41 @@ io.on('connection', (socket) => {
 
         if (playerIndex !== -1) {
             const card = player.team[playerIndex];
-            let newPrice = card.transferWindowValues[room.currentSeason];
-            if (newPrice === undefined || newPrice <= 0) {
-                const allVals = Object.values(card.transferWindowValues);
-                newPrice = allVals.length > 0 ? allVals[0] : card.historicalValue;
-            }
+            // Sezon w okienku to zawsze sztywno 2025/2026 (lub currentvalue)
+            let newPrice = card.currentValue > 0 ? card.currentValue : card.historicalValue;
             
             player.budget += newPrice;
+            const soldPosition = card.assignedPosition || 'Central Midfield';
             player.team.splice(playerIndex, 1);
             
             io.to(roomId).emit('playerSold', { msg: `🔥 ${player.username} sprzedał ${card.realName} za ${(newPrice/1000000).toFixed(1)}M €!` });
             socket.emit('updateMyData', player);
+
+            // Jeśli sprzedał, dajemy mu możliwość zakupu gracza na tę samą pozycję ze świeżej puli 2025/2026
+            socket.emit('openReplacementDraft', { position: soldPosition });
+        }
+    });
+
+    // Kupno zawodnika zastępczego po sprzedaży
+    socket.on('pickReplacement', ({ roomId, sessionPickId }) => {
+        const room = rooms[roomId];
+        if (!room || room.state !== 'transfer') return;
+        const currentPlayer = room.players.find(p => p.id === socket.id);
+
+        const playerToBuyIndex = room.replacementPool.findIndex(p => p.sessionPickId === sessionPickId);
+        if (playerToBuyIndex === -1) return;
+
+        const playerToBuy = room.replacementPool[playerToBuyIndex];
+        if (currentPlayer.budget >= playerToBuy.historicalValue) {
+            currentPlayer.budget -= playerToBuy.historicalValue;
+            currentPlayer.team.push({ ...playerToBuy, boughtInSeason: "2025/2026", assignedPosition: playerToBuy.sub_position });
+            room.draftedIds.push(playerToBuy.id);
+            room.replacementPool.splice(playerToBuyIndex, 1);
+
+            socket.emit('updateMyData', currentPlayer);
+            socket.emit('closeReplacementDraft');
+        } else {
+            socket.emit('errorMsg', 'Brak budżetu na tego zawodnika!');
         }
     });
 
@@ -332,8 +335,11 @@ function emitGameState(roomId) {
 function startTransferWindow(roomId) {
     const room = rooms[roomId];
     room.state = 'transfer';
-    const allSeasons = Object.keys(db);
-    room.currentSeason = getValidTransferSeason(room.players[0].team, allSeasons); 
+    // Sezon w okienku zawsze 2025/2026
+    room.currentSeason = "2025/2026"; 
+
+    // Przygotowujemy pulę zapasową na wypadek zakupu zastępczego
+    room.replacementPool = fetchPlayersFromDB(roomId, room.currentSeason, ['Centre-Forward', 'Central Midfield', 'Centre-Back', 'Goalkeeper', 'Right-Back', 'Left-Back', 'Right Winger', 'Left Winger'], 10);
 
     io.to(roomId).emit('transferWindowOpen', { season: room.currentSeason, hostId: room.host });
 }
