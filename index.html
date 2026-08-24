@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
-    <title>Wehikuł Transferowy 0.1.1-alpha</title>
+    <title>Wehikuł Transferowy 0.1.2-alpha</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -58,7 +58,7 @@
 <body>
     <div class="main-content">
         <button class="btn-info" onclick="toggleTutorial(true)">Jak grać?</button>
-        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.1-alpha</span></h1>
+        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.2-alpha</span></h1>
         
         <div id="login" class="panel">
             <h2 style="color: #00e676 !important;">Wybierz swój Nick</h2>
@@ -78,20 +78,21 @@
         <div id="tutorialModal" class="hidden">
             <div class="modal-content">
                 <h2 style="color: #ffd700 !important; margin-top:0;">Jak grać?</h2>
-                <p>1. <b>Cel:</b> Zbuduj najdroższy skład na podstawie wycen z Transfermarkt w sezonie 2025/2026.</p>
-                <p>2. <b>Draft:</b> W każdej rundzie losowany jest inny sezon historyczny. Otrzymujesz pulę anonimowych graczy, o znanej cenie, lidze i statystykach.</p>
-                <p>3. <b>Okienka Transferowe:</b> W okienku wyceny Twoich piłkarzy są sprawdzane na sezon <b>2025/2026</b>. Jeśli kogoś sprzedasz, zyskujesz budżet i możesz od razu dokupić nowego zawodnika z tej samej pozycji!</p>
+                <p>1. <b>Cel:</b> Zbuduj najcenniejszy skład na podstawie wycen z <b>sezonu 2025/2026</b>.</p>
+                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny. Inwestujesz w anonimowe karty gwiazd.</p>
+                <p>3. <b>Okienka Transferowe:</b> Poznaj prawdziwą tożsamość graczy i ich wycenę z 2025/2026. Sprzedaż daje profit i możliwość natychmiastowego zakupu zastępcy!</p>
+                <p>4. <b>Zasada punktacji:</b> Zaoszczędzona gotówka <u>nie liczy się</u> do wyniku. Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
                 <div style="text-align:center; margin-top:20px;">
                     <button onclick="toggleTutorial(false)">Zamknij</button>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL DLA ZAKUPU ZASTĘPCZEGO PO SPRZEDAŻY -->
+        <!-- MODAL DLA ZAKUPU ZASTĘPCZEGO -->
         <div id="replacementModal" class="hidden">
             <div class="modal-content" style="max-width: 800px; text-align: center;">
                 <h2 style="color: #00e676 !important;">Rynek Zastępczy (Sezon 2025/2026)</h2>
-                <p style="color: #aaa;">Sprzedałeś zawodnika. Wybierz nowego piłkarza z puli:</p>
+                <p style="color: #aaa;">Wybierz nowego piłkarza na zwolnione miejsce:</p>
                 <div id="replacementPoolContainer" class="card-container"></div>
             </div>
         </div>
@@ -135,7 +136,7 @@
             <div id="transferZone" class="hidden">
                 <h2 style="color: #00C9FF !important; font-size: 2em;">❄️ Okienko Transferowe ❄️</h2>
                 <p>Sezon na rynku: <b id="transferSeason" style="color: #ffd700 !important; font-size: 1.2em;">2025/2026</b></p>
-                <p style="color: #aaa !important;">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026. Możesz kogoś sprzedać i od razu dokupić zastępcę.</p>
+                <p style="color: #aaa !important;">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026. Sprzedaż daje natychmiastowy wybór zastępcy.</p>
                 
                 <div id="myTransferTeam" class="card-container"></div>
                 
@@ -153,7 +154,7 @@
     </div>
 
     <footer>
-        Wehikuł Transferowy v0.1.1-alpha | Stworzone przez: Mateusz Mostowik
+        Wehikuł Transferowy v0.1.2-alpha | Stworzone przez: Mateusz Mostowik
     </footer>
 
     <div id="overlay" class="hidden">
@@ -320,7 +321,7 @@
                     winVal = c.currentValue > 0 ? c.currentValue : c.historicalValue;
                 }
                 
-                const profit = winVal - c.historicalValue;
+                const profit = winVal - (c.purchasePrice || c.historicalValue);
                 const color = profit >= 0 ? '#00e676' : '#ff3333';
 
                 return `
@@ -328,7 +329,7 @@
                     <h3 style="color: #ffd700 !important; font-size: 1.2em;">${c.realName}</h3>
                     <p style="color: #ccc !important;">Liga: <b style="color: #fff !important;">${c.stats.league}</b></p>
                     <p style="color: #ccc !important;">Kupiony w: <b style="color: #fff !important;">${c.boughtInSeason}</b></p>
-                    <p style="color: #ccc !important;">Kupiony za: <b style="color: #fff !important;">${(c.historicalValue / 1000000).toFixed(1)}M €</b></p>
+                    <p style="color: #ccc !important;">Kupiony za: <b style="color: #fff !important;">${((c.purchasePrice || c.historicalValue) / 1000000).toFixed(1)}M €</b></p>
                     <p style="margin-top:15px; border-top: 1px solid #444; padding-top: 15px; color: #ccc !important;">
                         Wycena (2025/2026):<br>
                         <b style="color: ${color} !important; font-size: 1.3em;">${(winVal / 1000000).toFixed(1)}M €</b>
@@ -345,7 +346,6 @@
             }
         }
 
-        // Obsługa otwarcia okienka zakupu zastępczego
         socket.on('openReplacementDraft', (data) => {
             socket.emit('getReplacementPool', { roomId: currentRoomId, position: data.position });
         });
@@ -422,7 +422,7 @@
                             <th style="color: #00e676 !important;">Wartość Składu</th>
                             <th style="color: #00e676 !important;">Kapitan (Bonus)</th>
                             <th style="color: #00e676 !important;">Synergia Ligi</th>
-                            <th style="color: #00e676 !important;">Zaoszczędzony Budżet</th>
+                            <th style="color: #00e676 !important;">Profit z Okienek</th>
                             <th style="color: #ffd700 !important; font-size: 1.2em;">Wynik Końcowy</th>
                         </tr>
                         ${data.players.map((p, index) => {
@@ -436,7 +436,7 @@
                                 <td style="color: #fff !important;">${(p.breakdown.teamValueBase / 1000000).toFixed(1)}M</td>
                                 <td style="color: #ffd700 !important;">+ ${(p.breakdown.captainBonus / 1000000).toFixed(1)}M</td>
                                 <td style="color: #00C9FF !important;">+ ${(p.breakdown.synergyBonus / 1000000).toFixed(1)}M</td>
-                                <td style="color: #00e676 !important;">+ ${(p.breakdown.budget / 1000000).toFixed(1)}M</td>
+                                <td style="color: #00e676 !important;">+ ${(p.breakdown.totalProfit / 1000000).toFixed(1)}M</td>
                                 <td style="font-weight: 900; font-size: 1.2em; color: ${isWinner ? '#ffd700' : '#00e676'} !important;">
                                     ${(p.breakdown.finalScore / 1000000).toFixed(1)}M €
                                 </td>
