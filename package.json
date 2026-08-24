@@ -1,0 +1,13 @@
+{
+  "name": "wehikul-transferowy",
+  "version": "0.1.0",
+  "description": "Piłkarska gra draftowa 0.1-alpha",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
