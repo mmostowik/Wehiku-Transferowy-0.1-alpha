@@ -79,15 +79,16 @@
             <div class="modal-content">
                 <h2 style="color: #ffd700 !important; margin-top:0;">Jak grać?</h2>
                 <p>1. <b>Cel:</b> Zbuduj najcenniejszy skład na podstawie wycen z <b>sezonu 2025/2026</b>.</p>
-                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny. W każdej rundzie prezentowane są <b>3 losowe statystyki</b> (np. minuty w pucharach, gole, czyste konta), które pomagają zidentyfikować gracza.</p>
-                <p>3. <b>Okienka Transferowe:</b> Poznaj prawdziwą tożsamość graczy i ich wycenę z 2025/2026. Sprzedaż daje profit i możliwość natychmiastowego zakupu zastępcy!</p>
-                <p>4. <b>Zasada punktacji:</b> Zaoszczędzona gotówka <u>nie liczy się</u> do wyniku. Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
+                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny i 3 statystyki.</p>
+                <p>3. <b>Okienka Transferowe:</b> Poznaj tożsamość graczy i wycenę z 2025/2026. Sprzedaż daje budżet i otwiera rynek zastępczy.</p>
+                <p>4. <b>Punktacja:</b> Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
                 <div style="text-align:center; margin-top:20px;">
                     <button onclick="toggleTutorial(false)">Zamknij</button>
                 </div>
             </div>
         </div>
 
+        <!-- NAPRAWIONY MODAL ZASTĘPCZY -->
         <div id="replacementModal" class="hidden">
             <div class="modal-content" style="max-width: 800px; text-align: center;">
                 <h2 style="color: #00e676 !important;">Rynek Zastępczy (Sezon 2025/2026)</h2>
@@ -124,7 +125,7 @@
             
             <div id="draftZone" class="hidden">
                 <h2 id="turnText" style="color: #ffd700 !important; font-size: 2em; margin-bottom: 5px;">Tura gracza...</h2>
-                <p style="color: #aaa !important; margin-bottom: 30px;">Wybierz jednego z dostępnych zawodników na podstawie 3 losowych statystyk sezonu!</p>
+                <p style="color: #aaa !important; margin-bottom: 30px;">Wybierz jednego z dostępnych zawodników na podstawie statystyk!</p>
                 
                 <div id="poolZone" class="card-container"></div>
                 
@@ -135,7 +136,7 @@
             <div id="transferZone" class="hidden">
                 <h2 style="color: #00C9FF !important; font-size: 2em;">❄️ Okienko Transferowe ❄️</h2>
                 <p>Sezon na rynku: <b id="transferSeason" style="color: #ffd700 !important; font-size: 1.2em;">2025/2026</b></p>
-                <p style="color: #aaa !important;">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026. Sprzedaż daje natychmiastowy wybór zastępcy.</p>
+                <p style="color: #aaa !important;">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026.</p>
                 
                 <div id="myTransferTeam" class="card-container"></div>
                 
@@ -146,7 +147,7 @@
             
             <div id="captainZone" class="hidden">
                 <h2 style="color: #ffd700 !important; font-size: 2em;">Wybierz Kapitana 👑</h2>
-                <p style="color: #ccc !important;">Wszyscy ujawnieni! Kliknij kartę zawodnika. Jego ostateczna wartość rynkowa zostanie podwojona!</p>
+                <p style="color: #ccc !important;">Wszyscy ujawnieni! Kliknij kartę zawodnika, aby podwoić jego wynik.</p>
                 <div id="myCaptainTeam" class="card-container"></div>
             </div>
         </div>
@@ -229,18 +230,11 @@
             }
         });
 
-        // Słownik przyjaznych nazw dla statystyk wyświetlaných na karcie
         const statLabels = {
             goals: 'Gole w lidze',
             assists: 'Asysty w lidze',
-            goalInvolvementPercentage: 'Udział w bramkach',
             minutesPlayed: 'Minuty w lidze',
-            startingLineups: 'Występy w 1. składzie',
-            yellowCards: 'Żółte kartki',
-            cleanSheets: 'Czyste konta',
-            europeanMinutes: 'Minuty w pucharach',
-            europeanGA: 'G/A w pucharach',
-            trophies: 'Trofea klubowe'
+            yellowCards: 'Żółte kartki'
         };
 
         socket.on('newTurn', (data) => {
@@ -273,14 +267,12 @@
                 const canAfford = myBudget >= c.historicalValue;
                 const cardClass = (isMyTurn && canAfford) ? 'card' : 'card disabled-card';
                 
-                // Generujemy HTML dla 3 wylosowanych dynamicznie statystyk
                 let statsHtml = `<p style="color: #ccc !important;">Wiek: <b style="color: #fff !important;">${c.displayStats.age}</b></p>`;
                 statsHtml += `<p style="color: #ccc !important;">Liga: <b style="color: #fff !important;">${c.displayStats.league}</b></p>`;
                 
                 for (const [key, val] of Object.entries(c.displayStats.activeStats)) {
                     const label = statLabels[key] || key;
-                    const displayVal = key === 'goalInvolvementPercentage' ? val + '%' : val;
-                    statsHtml += `<p style="color: #ccc !important;">${label}: <b style="color: #fff !important;">${displayVal}</b></p>`;
+                    statsHtml += `<p style="color: #ccc !important;">${label}: <b style="color: #fff !important;">${val}</b></p>`;
                 }
 
                 return `
@@ -367,10 +359,7 @@
             }
         }
 
-        socket.on('openReplacementDraft', (data) => {
-            socket.emit('getReplacementPool', { roomId: currentRoomId, position: data.position });
-        });
-
+        // NAPRAWIONE: Nasłuchiwanie na otwarcie okna zastępczego
         socket.on('showReplacementModal', (pool) => {
             const modal = document.getElementById('replacementModal');
             const container = document.getElementById('replacementPoolContainer');

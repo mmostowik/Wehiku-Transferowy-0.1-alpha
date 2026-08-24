@@ -353,17 +353,16 @@ function startNextRound(roomId) {
 
     room.pool = fetchPlayersFromDB(roomId, room.currentSeason, PositionMap[requiredPositionCode], totalCardsToFetch);
     
-    // Zaktualizowana pula statystyk obejmująca nowe wskaźniki
     const isDefensive = ['GK', 'CB', 'FB'].includes(requiredPositionCode);
     let possibleStats = isDefensive 
-        ? ['cleanSheets', 'minutesPlayed', 'startingLineups', 'yellowCards', 'europeanMinutes', 'europeanGA', 'trophies']
-        : ['goals', 'assists', 'goalInvolvementPercentage', 'minutesPlayed', 'startingLineups', 'yellowCards', 'europeanMinutes', 'europeanGA', 'trophies'];
+        ? ['minutesPlayed', 'yellowCards']
+        : ['goals', 'assists', 'minutesPlayed', 'yellowCards'];
 
     for (let i = possibleStats.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [possibleStats[i], possibleStats[j]] = [possibleStats[j], possibleStats[i]];
     }
-    room.currentActiveStats = possibleStats.slice(0, 3);
+    room.currentActiveStats = possibleStats.slice(0, Math.min(3, possibleStats.length));
 
     emitGameState(roomId);
 }
