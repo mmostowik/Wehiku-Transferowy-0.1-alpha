@@ -25,6 +25,20 @@ export interface PlayerCard {
   purchasePrice?: number;
 }
 
+export interface OwnedCardView {
+  id: string;
+  hidden: boolean;
+  historicalValue: number;
+  purchasePrice?: number;
+  boughtInSeason?: string;
+  assignedPosition?: PositionCode;
+  realName?: string;
+  stats?: PlayerStats;
+  currentValue?: number;
+  transferValue?: number;
+  canSell?: boolean;
+}
+
 export interface ScoreBreakdown {
   teamValueBase: number;
   captainBonus: number;
@@ -43,20 +57,37 @@ export interface GamePlayer {
   breakdown?: ScoreBreakdown;
 }
 
+export interface PlayerView {
+  id: string;
+  username: string;
+  budget: number;
+  team: OwnedCardView[];
+  totalProfit: number;
+  captainId?: string;
+  breakdown?: ScoreBreakdown;
+  connected: boolean;
+}
+
+export interface LobbyPlayer {
+  id: string;
+  username: string;
+  connected: boolean;
+}
+
 export interface RoomSummary {
   id: string;
   hostName: string;
   playerCount: number;
 }
 
-export interface DraftCard {
+export interface MysteryCard {
   sessionPickId: string;
   displayStats: {
     age: number | '?';
     league: string;
     activeStats: Partial<Record<StatKey, number>>;
   };
-  historicalValue: number;
+  price: number;
 }
 
 export interface NewTurnPayload {
@@ -65,32 +96,46 @@ export interface NewTurnPayload {
   season: string;
   turnPlayerId: string;
   turnPlayerName: string;
-  pool: DraftCard[];
+  pool: MysteryCard[];
   activeStatsKeys: StatKey[];
+}
+
+export interface TransferStatusPayload {
+  season: string;
+  hostPlayerId: string;
+  readyPlayerIds: string[];
+  totalPlayers: number;
 }
 
 export interface ClientToServerEvents {
   createRoom: (username: string) => void;
   joinRoom: (payload: { roomId: string; username: string }) => void;
+  resumeGame: (payload: { roomId: string; resumeToken: string }) => void;
   startGame: (payload: { roomId: string; modeKey: GameModeKey }) => void;
   pickPlayer: (payload: { roomId: string; sessionPickId: string }) => void;
+  skipPick: (roomId: string) => void;
   sellPlayer: (payload: { roomId: string; playerId: string }) => void;
   pickReplacement: (payload: { roomId: string; sessionPickId: string }) => void;
-  endTransferWindow: (roomId: string) => void;
+  declineReplacement: (roomId: string) => void;
+  setTransferReady: (roomId: string) => void;
+  resolveDisconnect: (payload: { roomId: string; playerId: string; action: 'remove' | 'wait' }) => void;
   selectCaptain: (payload: { roomId: string; cardId: string }) => void;
 }
 
 export interface ServerToClientEvents {
   updateRoomList: (rooms: RoomSummary[]) => void;
-  joinSuccess: (payload: { roomId: string }) => void;
-  updateLobby: (payload: { players: GamePlayer[]; isHost: boolean }) => void;
+  joinSuccess: (payload: { roomId: string; playerId: string; resumeToken: string; resumed: boolean }) => void;
+  updateLobby: (payload: { players: LobbyPlayer[]; isHost: boolean }) => void;
   newTurn: (payload: NewTurnPayload) => void;
   errorMsg: (message: string) => void;
-  updateMyData: (player: GamePlayer) => void;
-  transferWindowOpen: (payload: { season: string; hostId: string }) => void;
-  showReplacementModal: (pool: PlayerCard[]) => void;
+  updateMyData: (player: PlayerView) => void;
+  transferWindowOpen: (payload: TransferStatusPayload) => void;
+  showReplacementModal: (pool: MysteryCard[]) => void;
   closeReplacementDraft: () => void;
-  playerSold: (payload: { msg: string }) => void;
-  startCaptainSelection: (payload: { players: GamePlayer[] }) => void;
-  gameOver: (payload: { players: GamePlayer[] }) => void;
+  transferLog: (payload: { message: string; kind: 'sale' | 'reveal' | 'system' }) => void;
+  gamePaused: (payload: { playerName: string; reconnectDeadline: number }) => void;
+  gameResumed: (payload: { message: string }) => void;
+  disconnectDecision: (payload: { playerId: string; playerName: string; waiting: boolean }) => void;
+  startCaptainSelection: (payload: { players: PlayerView[] }) => void;
+  gameOver: (payload: { players: PlayerView[] }) => void;
 }

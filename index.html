@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <title>Wehikuł Transferowy 0.1.4-alpha</title>
+    <title>Wehikuł Transferowy 0.2.0-alpha.1</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet" />
@@ -12,8 +12,8 @@
   </head>
   <body class="flex min-h-screen flex-col bg-[linear-gradient(135deg,#0f2027,#203a43,#2c5364)] bg-fixed p-5 text-center font-poppins text-white">
     <div class="flex-1">
-      <button id="tutorialOpenBtn" class="absolute top-5 right-5 cursor-pointer rounded-[20px] border border-[#777] bg-[#333] px-[15px] py-2 text-sm font-bold text-white uppercase shadow-none transition-all duration-300 hover:scale-105">Jak grać?</button>
-      <h1 class="mb-[30px] text-[2.5em] font-black text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">Wehikuł Transferowy <span class="align-middle text-[0.4em] text-[#aaa]">0.1.4-alpha</span></h1>
+      <button id="tutorialOpenBtn" class="absolute top-5 right-5 z-10 cursor-pointer rounded-[20px] border border-[#777] bg-[#333] px-[15px] py-2 text-sm font-bold text-white uppercase shadow-none transition-all duration-300 hover:scale-105">Jak grać?</button>
+      <h1 class="mb-[30px] text-[2.5em] font-black text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">Wehikuł Transferowy <span class="align-middle text-[0.4em] text-[#aaa]">0.2.0-alpha.1</span></h1>
 
       <div id="login" class="mx-auto max-w-[500px] rounded-[20px] border border-white/10 bg-white/5 p-10 shadow-[0_8px_32px_rgba(0,0,0,0.37)] backdrop-blur-[10px]">
         <h2 class="font-bold text-brand">Wybierz swój Nick</h2>
@@ -32,9 +32,10 @@
         <div class="max-w-[600px] rounded-[15px] border border-[#444] bg-[#222] p-[30px] text-left">
           <h2 class="mt-0 font-bold text-accent">Jak grać?</h2>
           <p>1. <b>Cel:</b> Zbuduj najcenniejszy skład na podstawie wycen z <b>sezonu 2025/2026</b>.</p>
-          <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny i statystyki.</p>
-          <p>3. <b>Okienka Transferowe:</b> Poznaj tożsamość graczy i wycenę z 2025/2026. Sprzedaż daje budżet i otwiera rynek zastępczy.</p>
-          <p>4. <b>Punktacja:</b> Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
+          <p>2. <b>Draft (2015/16–2024/25):</b> W każdej rundzie losowany jest sezon historyczny i statystyki. Jeśli nie chcesz lub nie możesz kupić karty, możesz pominąć wybór.</p>
+          <p>3. <b>Okienka transferowe:</b> Poznaj tożsamość graczy i wycenę z 2025/2026. Rynek zastępczy pozostaje anonimowy, a nazwisko zakupionego zmiennika poznasz po zamknięciu okna.</p>
+          <p>4. <b>Zamknięcie okna:</b> Okno kończy się, gdy wszyscy aktywni gracze zagłosują „Gotowy”.</p>
+          <p>5. <b>Punktacja:</b> Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
           <div class="mt-5 text-center"><button id="tutorialCloseBtn" class="cursor-pointer rounded-[25px] bg-[linear-gradient(90deg,#00C9FF_0%,#92FE9D_100%)] px-[30px] py-3 text-base font-bold text-black uppercase shadow-[0_4px_15px_rgba(0,255,128,0.3)] transition-all duration-300 hover:scale-105">Zamknij</button></div>
         </div>
       </div>
@@ -44,6 +45,7 @@
           <h2 class="font-bold text-brand">Rynek Zastępczy (Sezon 2025/2026)</h2>
           <p class="text-[#aaa]">Wybierz nowego piłkarza na zwolnione miejsce:</p>
           <div id="replacementPoolContainer" class="mt-5 flex flex-wrap justify-center gap-5"></div>
+          <button id="declineReplacementBtn" class="mt-5 cursor-pointer rounded-[25px] border border-[#777] bg-[#333] px-[30px] py-3 font-bold text-white uppercase">Zrezygnuj ze zmiennika</button>
         </div>
       </div>
 
@@ -71,6 +73,7 @@
           <h2 id="turnText" class="mb-[5px] text-[2em] font-bold text-accent">Tura gracza...</h2>
           <p class="mb-[30px] text-[#aaa]">Wybierz jednego z dostępnych zawodników na podstawie statystyk!</p>
           <div id="poolZone" class="mt-5 flex flex-wrap justify-center gap-5"></div>
+          <button id="skipPickBtn" class="mt-5 hidden cursor-pointer rounded-[25px] border border-[#777] bg-[#333] px-[30px] py-3 font-bold text-white uppercase">Pomiń wybór</button>
           <h3 class="mt-10 border-b border-[#444] pb-2.5 text-left">Twój Skład (Zasłonięty)</h3>
           <div id="myHiddenTeam" class="mt-5 flex flex-wrap justify-start gap-5"></div>
         </div>
@@ -80,7 +83,8 @@
           <p>Sezon na rynku: <b id="transferSeason" class="text-[1.2em] text-accent">2025/2026</b></p>
           <p class="text-[#aaa]">Twoi zawodnicy zostali <b>Odkryci!</b> Ich wycena bazuje na sezonie 2025/2026.</p>
           <div id="myTransferTeam" class="mt-5 flex flex-wrap justify-center gap-5"></div>
-          <div class="mt-10"><button id="endTransferBtn" class="hidden cursor-pointer rounded-[25px] bg-[linear-gradient(90deg,#f12711_0%,#f5af19_100%)] px-[30px] py-3 text-base font-bold text-white uppercase shadow-[0_4px_15px_rgba(0,255,128,0.3)] transition-all duration-300 hover:scale-105">Zakończ Okienko (Tylko Host)</button></div>
+          <p id="transferReadyStatus" class="mt-8 text-[#aaa]">Gotowi: 0/0</p>
+          <div class="mt-3"><button id="transferReadyBtn" class="cursor-pointer rounded-[25px] bg-[linear-gradient(90deg,#f12711_0%,#f5af19_100%)] px-[30px] py-3 text-base font-bold text-white uppercase transition-all duration-300 hover:scale-105">Gotowy — głosuj za zamknięciem okna</button></div>
         </div>
 
         <div id="captainZone" class="hidden">
@@ -91,8 +95,18 @@
       </div>
     </div>
 
-    <footer class="mt-auto pt-10 pb-2.5 text-center text-[0.85em] text-[#888]">Wehikuł Transferowy v0.1.4-alpha | Stworzone przez: Mateusz Mostowik</footer>
-    <div id="overlay" class="hidden fixed inset-0 z-1000 flex items-center justify-center bg-black/85 backdrop-blur-[5px]"><div id="overlayMsg" class="rounded-[20px] border-2 border-brand bg-[linear-gradient(145deg,#111,#222)] p-10 text-center text-[2.5em] text-white shadow-[0_0_40px_rgba(0,230,118,0.4)]"></div></div>
+    <footer class="mt-auto pt-10 pb-2.5 text-center text-[0.85em] text-[#888]">Wehikuł Transferowy v0.2.0-alpha.1 | Stworzone przez: Mateusz Mostowik</footer>
+    <aside id="transferLog" class="fixed right-5 bottom-5 z-50 flex w-[min(360px,calc(100vw-40px))] flex-col gap-2 text-left" aria-live="polite"></aside>
+    <div id="pauseBanner" class="hidden fixed inset-x-5 top-5 z-60 mx-auto max-w-[700px] rounded-[15px] border border-accent bg-[#222] p-4 text-accent shadow-xl" role="status"></div>
+    <div id="disconnectDecision" class="hidden fixed inset-0 z-1000 flex items-center justify-center bg-black/70 p-5">
+      <div class="max-w-[500px] rounded-[15px] border border-[#444] bg-[#222] p-[30px] text-center">
+        <p id="disconnectDecisionText"></p>
+        <div class="mt-5 flex justify-center gap-3">
+          <button id="disconnectWaitBtn" class="cursor-pointer rounded-[25px] border border-[#777] bg-[#333] px-5 py-3 font-bold">Czekaj dalej</button>
+          <button id="disconnectRemoveBtn" class="cursor-pointer rounded-[25px] bg-[#ff416c] px-5 py-3 font-bold">Usuń gracza</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/client/main.ts"></script>
   </body>
 </html>

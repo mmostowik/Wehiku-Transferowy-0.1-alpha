@@ -14,6 +14,7 @@ let httpServer: HttpServer;
 let io: Server<ClientToServerEvents, ServerToClientEvents>;
 let host: TestClient;
 let guest: TestClient;
+let serverUrl: string;
 
 beforeEach(async () => {
   httpServer = createServer();
@@ -22,9 +23,9 @@ beforeEach(async () => {
   await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const address = httpServer.address();
   if (!address || typeof address === 'string') throw new Error('Nie udało się uruchomić serwera testowego.');
-  const url = `http://127.0.0.1:${address.port}`;
-  host = createClient(url, { transports: ['websocket'] });
-  guest = createClient(url, { transports: ['websocket'] });
+  serverUrl = `http://127.0.0.1:${address.port}`;
+  host = createClient(serverUrl, { transports: ['websocket'] });
+  guest = createClient(serverUrl, { transports: ['websocket'] });
   await Promise.all([connected(host), connected(guest)]);
 });
 
@@ -49,6 +50,31 @@ describe('Socket.IO adapter', () => {
     const promotedLobby = nextLobbyWithPlayers(guest, 1);
     host.disconnect();
     expect((await promotedLobby).isHost).toBe(true);
+  });
+
+  it('wznawia trwającą grę po połączeniu nowego socketu z tokenem sesji', async () => {
+    const joined = once(host, 'joinSuccess');
+    host.emit('createRoom', 'Host');
+    const session = await joined;
+    const guestLobby = nextLobbyWithPlayers(guest, 2);
+    guest.emit('joinRoom', { roomId: session.roomId, username: 'Gość' });
+    await guestLobby;
+
+    const started = once(guest, 'newTurn');
+    host.emit('startGame', { roomId: session.roomId, modeKey: 'fast' });
+    await started;
+    const paused = once(guest, 'gamePaused');
+    host.disconnect();
+    await paused;
+
+    const resumedClient: TestClient = createClient(serverUrl, { transports: ['websocket'] });
+    await connected(resumedClient);
+    const resumed = once(resumedClient, 'joinSuccess');
+    const gameResumed = once(guest, 'gameResumed');
+    resumedClient.emit('resumeGame', { roomId: session.roomId, resumeToken: session.resumeToken });
+    expect(await resumed).toMatchObject({ roomId: session.roomId, playerId: session.playerId, resumed: true });
+    expect((await gameResumed).message).toContain('wrócił');
+    resumedClient.disconnect();
   });
 });
 

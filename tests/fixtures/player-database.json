@@ -1,7 +1,20 @@
 {
   "2015/16": {
     "Goalkeeper": [
-      { "id": "gk-1", "realName": "Bramkarz", "stats": { "age": 20, "league": "Premier League", "minutesPlayed": 3000, "yellowCards": 1 }, "historicalValue": 10000000, "transferWindowValues": { "2025/26": 15000000 }, "currentValue": 15000000 }
+      { "id": "gk-1", "realName": "Bramkarz Jeden", "stats": { "age": 20, "league": "Premier League", "minutesPlayed": 3000, "yellowCards": 1 }, "historicalValue": 10000000, "transferWindowValues": { "2025/26": 15000000 }, "currentValue": 15000000 },
+      { "id": "gk-2", "realName": "Bramkarz Dwa", "stats": { "age": 21, "league": "LaLiga", "minutesPlayed": 2900, "yellowCards": 0 }, "historicalValue": 9000000, "transferWindowValues": { "2025/26": 14000000 }, "currentValue": 14000000 }
+    ],
+    "Centre-Back": [
+      { "id": "cb-1", "realName": "Stoper", "stats": { "age": 20, "league": "Serie A", "minutesPlayed": 2800, "yellowCards": 4 }, "historicalValue": 11000000, "transferWindowValues": { "2025/26": 16000000 }, "currentValue": 16000000 }
+    ],
+    "Right-Back": [
+      { "id": "fb-1", "realName": "Boczny Obrońca", "stats": { "age": 20, "league": "Bundesliga", "minutesPlayed": 2600, "yellowCards": 2 }, "historicalValue": 10000000, "transferWindowValues": { "2025/26": 13000000 }, "currentValue": 13000000 }
+    ],
+    "Central Midfield": [
+      { "id": "cm-1", "realName": "Pomocnik", "stats": { "age": 20, "league": "Ligue 1", "goals": 5, "assists": 8, "minutesPlayed": 2700, "yellowCards": 3 }, "historicalValue": 12000000, "transferWindowValues": { "2025/26": 17000000 }, "currentValue": 17000000 }
+    ],
+    "Right Winger": [
+      { "id": "w-1", "realName": "Skrzydłowy", "stats": { "age": 20, "league": "Eredivisie", "goals": 10, "assists": 9, "minutesPlayed": 2500, "yellowCards": 1 }, "historicalValue": 13000000, "transferWindowValues": { "2025/26": 18000000 }, "currentValue": 18000000 }
     ],
     "Centre-Forward": [
       { "id": "st-1", "realName": "Napastnik", "stats": { "age": 20, "league": "Premier League", "goals": 15, "assists": 4, "minutesPlayed": 2500, "yellowCards": 2 }, "historicalValue": 12000000, "transferWindowValues": { "2025/26": 18000000 }, "currentValue": 18000000 }
@@ -9,10 +22,19 @@
   },
   "2025/26": {
     "Goalkeeper": [
-      { "id": "gk-2", "realName": "Nowy Bramkarz", "stats": { "age": 25, "league": "LaLiga", "minutesPlayed": 3100, "yellowCards": 0 }, "historicalValue": 20000000, "transferWindowValues": { "2025/26": 20000000 }, "currentValue": 20000000 }
+      { "id": "gk-new", "realName": "Nowy Bramkarz", "stats": { "age": 25, "league": "LaLiga", "minutesPlayed": 3100, "yellowCards": 0 }, "historicalValue": 20000000, "transferWindowValues": { "2025/26": 20000000 }, "currentValue": 20000000 }
+    ],
+    "Centre-Back": [
+      { "id": "cb-new", "realName": "Nowy Stoper", "stats": { "age": 24, "league": "Serie A", "minutesPlayed": 3000, "yellowCards": 3 }, "historicalValue": 21000000, "transferWindowValues": { "2025/26": 21000000 }, "currentValue": 21000000 }
+    ],
+    "Central Midfield": [
+      { "id": "cm-new", "realName": "Nowy Pomocnik", "stats": { "age": 24, "league": "Bundesliga", "goals": 7, "assists": 11, "minutesPlayed": 2800, "yellowCards": 2 }, "historicalValue": 22000000, "transferWindowValues": { "2025/26": 22000000 }, "currentValue": 22000000 }
+    ],
+    "Right Winger": [
+      { "id": "w-new", "realName": "Nowy Skrzydłowy", "stats": { "age": 23, "league": "Ligue 1", "goals": 14, "assists": 10, "minutesPlayed": 2700, "yellowCards": 1 }, "historicalValue": 23000000, "transferWindowValues": { "2025/26": 23000000 }, "currentValue": 23000000 }
     ],
     "Centre-Forward": [
-      { "id": "st-2", "realName": "Nowy Napastnik", "stats": { "age": 24, "league": "Serie A", "goals": 20, "assists": 5, "minutesPlayed": 2800, "yellowCards": 3 }, "historicalValue": 25000000, "transferWindowValues": { "2025/26": 25000000 }, "currentValue": 25000000 }
+      { "id": "st-new", "realName": "Nowy Napastnik", "stats": { "age": 24, "league": "Serie A", "goals": 20, "assists": 5, "minutesPlayed": 2800, "yellowCards": 3 }, "historicalValue": 25000000, "transferWindowValues": { "2025/26": 25000000 }, "currentValue": 25000000 }
     ]
   }
 }
