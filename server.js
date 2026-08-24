@@ -43,7 +43,6 @@ try {
     const data = fs.readFileSync('./game_database.json', 'utf8');
     db = JSON.parse(data);
     
-    // Ograniczamy dozwolone sezony zakupowe od 2015/16 do 2024/25
     const allDbSeasons = Object.keys(db);
     allowedSeasons = allDbSeasons.filter(s => {
         const startY = parseInt(s.split('/')[0]);
@@ -51,7 +50,7 @@ try {
     });
 
     if (allowedSeasons.length === 0) {
-        allowedSeasons = allDbSeasons; // Awaryjnie, gdyby brakowało lat w bazie
+        allowedSeasons = allDbSeasons;
     }
 
     const playerPeakValues = {};
@@ -89,7 +88,7 @@ try {
             if (db[season][pos].length > 0) hasValidPlayers = true;
         }
     }
-    console.log(`Baza wczytana. Sezony zakupowe: 2015/16 - 2024/25. Usunięto ${removedCount} wpisów.`);
+    console.log(`Baza wczytana. Usunięto ${removedCount} wpisów.`);
 } catch (err) {
     console.error("BŁĄD BAZY DANYCH:", err);
     process.exit(1);
@@ -112,7 +111,6 @@ function generateSessionId() {
     return 'pick_' + Math.random().toString(36).substr(2, 9);
 }
 
-// Pobieranie graczy z faworyzowaniem droższych kart (gwiazd)
 function fetchPlayersFromDB(roomId, season, acceptableSubPositions, count) {
     const room = rooms[roomId];
     let possiblePlayers = [];
@@ -127,21 +125,33 @@ function fetchPlayersFromDB(roomId, season, acceptableSubPositions, count) {
         return currentAge <= 32 && !room.draftedIds.includes(p.id);
     });
 
-    // Sortujemy malejąco po cenie historycznej, a potem wybieramy z lekkim losowaniem, 
-    // żeby drożsi zawodnicy trafiali się znacznie częściej w puli wyborów
     possiblePlayers.sort((a, b) => b.historicalValue - a.historicalValue);
+    
+    let weightedPool = [];
+    possiblePlayers.forEach((p, idx) => {
+        let weight = idx < possiblePlayers.length / 3 ? 3 : 1;
+        for (let w = 0; w < weight; w++) weightedPool.push(p);
+    });
 
-    // Bierzemy pulę z góry (najdrożsi), mieszamy jej część
-    let topTier = possiblePlayers.slice(0, Math.min(possiblePlayers.length, 40));
-    for (let i = topTier.length - 1; i > 0; i--) {
+    for (let i = weightedPool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [topTier[i], topTier[j]] = [topTier[j], topTier[i]];
+        [weightedPool[i], weightedPool[j]] = [weightedPool[j], weightedPool[i]];
     }
 
-    return topTier.slice(0, count).map(p => ({
-        ...p,
-        sessionPickId: generateSessionId()
-    }));
+    let uniqueSelection = [];
+    let seenIds = new Set();
+    for (let p of weightedPool) {
+        if (!seenIds.has(p.id)) {
+            seenIds.add(p.id);
+            uniqueSelection.push({
+                ...p,
+                sessionPickId: generateSessionId()
+            });
+            if (uniqueSelection.length >= count) break;
+        }
+    }
+
+    return uniqueSelection;
 }
 
 function getTurnPlayerId(room) {
@@ -244,7 +254,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // SPRZEDAŻ W OKIENKU I ZAPIS PROFITU
     socket.on('sellPlayer', ({ roomId, playerId }) => {
         const room = rooms[roomId];
         if (!room || room.state !== 'transfer') return;
@@ -259,7 +268,6 @@ io.on('connection', (socket) => {
                 newPrice = card.currentValue > 0 ? card.currentValue : card.historicalValue;
             }
             
-            // Profit ze sprzedaży = cena sprzedaży - cena zakupu
             const profit = newPrice - (card.purchasePrice || card.historicalValue);
             player.totalProfit = (player.totalProfit || 0) + profit;
 
@@ -270,23 +278,23 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('playerSold', { msg: `🔥 ${player.username} sprzedał ${card.realName} za ${(newPrice/1000000).toFixed(1)}M € (Profit: ${(profit/1000000).toFixed(1)}M €)!` });
             socket.emit('updateMyData', player);
 
-            // Otwieramy rynek zastępczy na tę samą pozycję
-            socket.emit('openReplacementDraft', { position: soldPosition });
+            const subPosList = PositionMap[soldPosition] || [soldPosition];
+            let replacementPool = fetchPlayersFromDB(roomId, "2025/2026", subPosList, 5);
+            room.replacementPool = replacementPool;
+            
+            socket.emit('showReplacementModal', replacementPool);
         }
     });
 
-    // POBIERANIE PULI ZASTĘPCZEJ DLA KONKRETNEJ POZYCJI
     socket.on('getReplacementPool', ({ roomId, position }) => {
         const room = rooms[roomId];
         if (!room) return;
         const subPosList = PositionMap[position] || [position];
-        
-        let pool = fetchPlayersFromDB(roomId, "2025/2026", subPosList, 6);
+        let pool = fetchPlayersFromDB(roomId, "2025/2026", subPosList, 5);
         room.replacementPool = pool;
         socket.emit('showReplacementModal', pool);
     });
 
-    // KUPNO ZASTĘPCY
     socket.on('pickReplacement', ({ roomId, sessionPickId }) => {
         const room = rooms[roomId];
         if (!room || room.state !== 'transfer') return;
@@ -337,13 +345,26 @@ io.on('connection', (socket) => {
 function startNextRound(roomId) {
     const room = rooms[roomId];
     room.state = 'draft';
-    room.currentSeason = getRandomAllowedSeason(); // Losuje z lat 2015-2024
+    room.currentSeason = getRandomAllowedSeason();
     
     const requiredPositionCode = room.mode.draftOrder[room.currentRound - 1];
     let totalCardsToFetch = 5;
     if (room.players.length >= 4) totalCardsToFetch = 7;
 
     room.pool = fetchPlayersFromDB(roomId, room.currentSeason, PositionMap[requiredPositionCode], totalCardsToFetch);
+    
+    // Zaktualizowana pula statystyk obejmująca nowe wskaźniki
+    const isDefensive = ['GK', 'CB', 'FB'].includes(requiredPositionCode);
+    let possibleStats = isDefensive 
+        ? ['cleanSheets', 'minutesPlayed', 'startingLineups', 'yellowCards', 'europeanMinutes', 'europeanGA', 'trophies']
+        : ['goals', 'assists', 'goalInvolvementPercentage', 'minutesPlayed', 'startingLineups', 'yellowCards', 'europeanMinutes', 'europeanGA', 'trophies'];
+
+    for (let i = possibleStats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [possibleStats[i], possibleStats[j]] = [possibleStats[j], possibleStats[i]];
+    }
+    room.currentActiveStats = possibleStats.slice(0, 3);
+
     emitGameState(roomId);
 }
 
@@ -354,7 +375,14 @@ function emitGameState(roomId) {
     
     const clientPool = room.pool.map(p => ({
         sessionPickId: p.sessionPickId,
-        stats: p.stats, 
+        displayStats: {
+            age: p.stats.age,
+            league: p.stats.league,
+            activeStats: room.currentActiveStats.reduce((acc, statKey) => {
+                acc[statKey] = p.stats[statKey] || 0;
+                return acc;
+            }, {})
+        },
         historicalValue: p.historicalValue
     }));
 
@@ -364,7 +392,8 @@ function emitGameState(roomId) {
         season: room.currentSeason,
         turnPlayerId: turnPlayerId,
         turnPlayerName: turnPlayerObj.username,
-        pool: clientPool
+        pool: clientPool,
+        activeStatsKeys: room.currentActiveStats
     });
 }
 
@@ -405,8 +434,6 @@ function endGame(roomId) {
         const totalTeamValue = teamValue + captainBonus;
         const teamValueAfterSynergy = totalTeamValue * synergyMultiplier;
         
-        // Zgodnie z wytycznymi: zaoszczędzony budżet SIĘ NIE LICZY. 
-        // Wynik ostateczny = Wartość składu po synergii + kapitan + zsumowany profit ze sprzedaży w okienkach
         const finalScore = totalTeamValue * synergyMultiplier + (player.totalProfit || 0);
 
         player.breakdown = {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
-    <title>Wehikuł Transferowy 0.1.2-alpha</title>
+    <title>Wehikuł Transferowy 0.1.3-alpha</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -58,7 +58,7 @@
 <body>
     <div class="main-content">
         <button class="btn-info" onclick="toggleTutorial(true)">Jak grać?</button>
-        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.2-alpha</span></h1>
+        <h1>Wehikuł Transferowy <span style="font-size: 0.4em; color: #aaa !important; vertical-align: middle;">0.1.3-alpha</span></h1>
         
         <div id="login" class="panel">
             <h2 style="color: #00e676 !important;">Wybierz swój Nick</h2>
@@ -79,7 +79,7 @@
             <div class="modal-content">
                 <h2 style="color: #ffd700 !important; margin-top:0;">Jak grać?</h2>
                 <p>1. <b>Cel:</b> Zbuduj najcenniejszy skład na podstawie wycen z <b>sezonu 2025/2026</b>.</p>
-                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny. Inwestujesz w anonimowe karty gwiazd.</p>
+                <p>2. <b>Draft (2015/16 - 2024/25):</b> W każdej rundzie losowany jest sezon historyczny. W każdej rundzie prezentowane są <b>3 losowe statystyki</b> (np. minuty w pucharach, gole, czyste konta), które pomagają zidentyfikować gracza.</p>
                 <p>3. <b>Okienka Transferowe:</b> Poznaj prawdziwą tożsamość graczy i ich wycenę z 2025/2026. Sprzedaż daje profit i możliwość natychmiastowego zakupu zastępcy!</p>
                 <p>4. <b>Zasada punktacji:</b> Zaoszczędzona gotówka <u>nie liczy się</u> do wyniku. Liczy się wartość składu, kapitan (x2), synergia ligowa oraz zysk z transferów.</p>
                 <div style="text-align:center; margin-top:20px;">
@@ -88,7 +88,6 @@
             </div>
         </div>
 
-        <!-- MODAL DLA ZAKUPU ZASTĘPCZEGO -->
         <div id="replacementModal" class="hidden">
             <div class="modal-content" style="max-width: 800px; text-align: center;">
                 <h2 style="color: #00e676 !important;">Rynek Zastępczy (Sezon 2025/2026)</h2>
@@ -125,7 +124,7 @@
             
             <div id="draftZone" class="hidden">
                 <h2 id="turnText" style="color: #ffd700 !important; font-size: 2em; margin-bottom: 5px;">Tura gracza...</h2>
-                <p style="color: #aaa !important; margin-bottom: 30px;">Wybierz jednego z dostępnych zawodników. Pamiętaj, tożsamość jest nieznana!</p>
+                <p style="color: #aaa !important; margin-bottom: 30px;">Wybierz jednego z dostępnych zawodników na podstawie 3 losowych statystyk sezonu!</p>
                 
                 <div id="poolZone" class="card-container"></div>
                 
@@ -154,7 +153,7 @@
     </div>
 
     <footer>
-        Wehikuł Transferowy v0.1.2-alpha | Stworzone przez: Mateusz Mostowik
+        Wehikuł Transferowy v0.1.3-alpha | Stworzone przez: Mateusz Mostowik
     </footer>
 
     <div id="overlay" class="hidden">
@@ -230,6 +229,20 @@
             }
         });
 
+        // Słownik przyjaznych nazw dla statystyk wyświetlaných na karcie
+        const statLabels = {
+            goals: 'Gole w lidze',
+            assists: 'Asysty w lidze',
+            goalInvolvementPercentage: 'Udział w bramkach',
+            minutesPlayed: 'Minuty w lidze',
+            startingLineups: 'Występy w 1. składzie',
+            yellowCards: 'Żółte kartki',
+            cleanSheets: 'Czyste konta',
+            europeanMinutes: 'Minuty w pucharach',
+            europeanGA: 'G/A w pucharach',
+            trophies: 'Trofea klubowe'
+        };
+
         socket.on('newTurn', (data) => {
             document.getElementById('lobby').classList.add('hidden');
             document.getElementById('game').classList.remove('hidden');
@@ -260,12 +273,20 @@
                 const canAfford = myBudget >= c.historicalValue;
                 const cardClass = (isMyTurn && canAfford) ? 'card' : 'card disabled-card';
                 
+                // Generujemy HTML dla 3 wylosowanych dynamicznie statystyk
+                let statsHtml = `<p style="color: #ccc !important;">Wiek: <b style="color: #fff !important;">${c.displayStats.age}</b></p>`;
+                statsHtml += `<p style="color: #ccc !important;">Liga: <b style="color: #fff !important;">${c.displayStats.league}</b></p>`;
+                
+                for (const [key, val] of Object.entries(c.displayStats.activeStats)) {
+                    const label = statLabels[key] || key;
+                    const displayVal = key === 'goalInvolvementPercentage' ? val + '%' : val;
+                    statsHtml += `<p style="color: #ccc !important;">${label}: <b style="color: #fff !important;">${displayVal}</b></p>`;
+                }
+
                 return `
                 <div class="${cardClass}" onclick="pickPlayer('${c.sessionPickId}', ${canAfford})">
-                    <h3 style="color: #00e676 !important;">Zawodnik z:<br><span style="color:#fff !important; font-size: 0.8em">${c.stats.league}</span></h3>
-                    <p style="color: #ccc !important;">Wiek: <b style="color: #fff !important;">${c.stats.age}</b></p>
-                    <p style="color: #ccc !important;">Gole: <b style="color: #fff !important;">${c.stats.goals}</b> | Asysty: <b style="color: #fff !important;">${c.stats.assists}</b></p>
-                    <p style="color: #ccc !important;">Minuty: <b style="color: #fff !important;">${c.stats.minutesPlayed}</b></p>
+                    <h3 style="color: #00e676 !important; font-size: 1.2em;">Tajemnicza Karta</h3>
+                    ${statsHtml}
                     <p style="margin-top:15px; border-top: 1px solid #444; padding-top: 15px; font-size: 1.1em;">
                         Cena rynkowa:<br>
                         <b style="color: #ffd700 !important; font-size: 1.2em;">${(c.historicalValue / 1000000).toFixed(1)}M €</b>
