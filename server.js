@@ -142,10 +142,11 @@ io.on('connection', (socket) => {
         if (isProfane(username)) return socket.emit('errorMsg', 'Nick niedozwolony!');
 
         const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-        rooms[roomId] = { id: roomId, host: socket.id, state: 'lobby', players: [], currentRound: 1, turnIndex: 0, draftedIds: [], isReverseTurn: false };
+        // Domyślny budżet startowy (domyślnie tryb medium/250M, zaktualizuje się przy starcie gry)
+        rooms[roomId] = { id: roomId, host: socket.id, state: 'lobby', players: [], currentRound: 1, turnIndex: 0, draftedIds: [], isReverseTurn: false, defaultBudget: 250000000 };
         
         socket.join(roomId);
-        rooms[roomId].players.push({ id: socket.id, username: username, budget: 0, team: [] });
+        rooms[roomId].players.push({ id: socket.id, username: username, budget: rooms[roomId].defaultBudget, team: [] });
         
         socket.emit('joinSuccess', { roomId });
         io.to(roomId).emit('updateLobby', { players: rooms[roomId].players, isHost: true });
@@ -159,7 +160,8 @@ io.on('connection', (socket) => {
         if (rooms[roomId].state !== 'lobby') return socket.emit('errorMsg', 'Gra już trwa!');
 
         socket.join(roomId);
-        rooms[roomId].players.push({ id: socket.id, username: username, budget: 0, team: [] });
+        // Przypisujemy graczowi od razu domyślny budżet pokoju
+        rooms[roomId].players.push({ id: socket.id, username: username, budget: rooms[roomId].defaultBudget, team: [] });
         
         socket.emit('joinSuccess', { roomId });
         io.to(roomId).emit('updateLobby', { players: rooms[roomId].players, isHost: rooms[roomId].host === socket.id });
@@ -173,6 +175,9 @@ io.on('connection', (socket) => {
 
         room.mode = GameModes[modeKey] || GameModes['medium'];
         room.totalRounds = room.mode.draftOrder.length;
+        
+        // Aktualizujemy budżety graczy zgodnie z wybranym trybem gry
+        room.defaultBudget = room.mode.budget;
         room.players.forEach(p => p.budget = room.mode.budget);
         
         room.state = 'playing';
@@ -201,6 +206,9 @@ io.on('connection', (socket) => {
             room.pool.splice(playerToBuyIndex, 1);
             room.turnIndex++;
             
+            // Wysyłamy zaktualizowane dane gracza (w tym nowy budżet) natychmiast po zakupie
+            socket.emit('updateMyData', currentPlayer);
+
             if (room.turnIndex >= room.players.length) {
                 room.turnIndex = 0;
                 room.currentRound++;
