@@ -12,6 +12,7 @@ describe('interaktywne elementy interfejsu', () => {
     const html = await readFile('index.html', 'utf8');
     expect(html).toContain('id="skipPickBtn"');
     expect(html).toContain('id="declineReplacementBtn"');
+    expect(html).toContain('id="replacementSeason"');
     expect(html).toContain('id="transferReadyBtn"');
     expect(html).not.toContain('id="endTransferBtn"');
   });

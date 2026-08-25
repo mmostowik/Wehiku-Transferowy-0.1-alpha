@@ -1,6 +1,6 @@
 # Wehikuł Transferowy
 
-Aktualna wersja: **0.2.0-alpha.1**.
+Aktualna wersja: **0.2.0-alpha.2**.
 
 Wieloosobowa, przeglądarkowa gra draftowa o budowaniu najcenniejszego składu piłkarskiego. Gracze wybierają ukryte karty z sezonów historycznych, handlują nimi w oknach transferowych 2025/2026, wybierają kapitana i rywalizują wartością końcową zespołu.
 
@@ -69,7 +69,7 @@ Stan pokojów nadal znajduje się w pamięci procesu, zgodnie z zachowaniem wers
 
 - gracz może pominąć wybór w drafcie i zakończyć grę z mniejszym składem,
 - sprzedaż nie wymusza zakupu zastępcy, a niski budżet jest sygnalizowany przed transakcją,
-- rynek zastępczy nie ujawnia nazwisk; zakup zostaje ujawniony po zamknięciu okna,
+- rynek zastępczy losuje sezon historyczny, używa jego danych i ceny oraz nie ujawnia nazwisk; zakup zostaje ujawniony po zamknięciu okna,
 - okno transferowe zamyka jednogłośne głosowanie aktywnych graczy,
 - rozłączenie wstrzymuje grę na trzy minuty i umożliwia wznowienie sesji,
 - po upływie czasu host decyduje o dalszym oczekiwaniu lub usunięciu gracza.

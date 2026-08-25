@@ -18,6 +18,7 @@ const ui = {
   season: element('currentSeason'), turnText: element('turnText'), draftPool: element('poolZone'), hiddenTeam: element('myHiddenTeam'),
   transferTeam: element('myTransferTeam'), transferSeason: element('transferSeason'), transferReady: element<HTMLButtonElement>('transferReadyBtn'),
   transferReadyStatus: element('transferReadyStatus'), replacementPool: element('replacementPoolContainer'),
+  replacementSeason: element('replacementSeason'),
   declineReplacement: element('declineReplacementBtn'), skipPick: element<HTMLButtonElement>('skipPickBtn'),
   captainTeam: element('myCaptainTeam'), transferLog: element('transferLog'), pauseBanner: element('pauseBanner'),
   disconnectDecision: element('disconnectDecision'), disconnectDecisionText: element('disconnectDecisionText'),
@@ -80,7 +81,8 @@ socket.on('transferWindowOpen', ({ season, readyPlayerIds, totalPlayers }) => {
   ui.transferReady.classList.toggle('opacity-50', state.ready);
   renderTransferTeam(ui.transferTeam, state.team, sellPlayer);
 });
-socket.on('showReplacementModal', (pool) => {
+socket.on('showReplacementModal', ({ season, pool }) => {
+  ui.replacementSeason.textContent = season;
   show(ui.replacement);
   renderReplacementPool(ui.replacementPool, pool, state.budget, (sessionPickId) => socket.emit('pickReplacement', { roomId: state.roomId, sessionPickId }));
 });

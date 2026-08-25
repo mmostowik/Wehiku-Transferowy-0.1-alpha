@@ -105,9 +105,10 @@ describe('GameEngine gameplay safeguards', () => {
     engine.skipPick('guest', host.roomId);
 
     const sold = engine.sellPlayer('host', host.roomId, hiddenPlayer.team[0]!.id);
-    const replacement = eventPayload<Array<Record<string, unknown>>>(sold, 'showReplacementModal');
-    expect(JSON.stringify(replacement)).not.toContain('Nowy Bramkarz');
-    expect(replacement[0]).not.toHaveProperty('realName');
+    const replacement = eventPayload<{ season: string; pool: Array<Record<string, unknown>> }>(sold, 'showReplacementModal');
+    expect(replacement.season).toBe('2015/16');
+    expect(JSON.stringify(replacement.pool)).not.toContain('Bramkarz');
+    expect(replacement.pool[0]).not.toHaveProperty('realName');
     expect(() => engine.setTransferReady('host', host.roomId)).toThrow('Najpierw wybierz zastępcę');
     expect(engine.declineReplacement('host', host.roomId)).toContainEqual(expect.objectContaining({ name: 'closeReplacementDraft' }));
 
@@ -132,15 +133,18 @@ describe('GameEngine gameplay safeguards', () => {
     engine.skipPick('host', host.roomId);
     engine.skipPick('guest', host.roomId);
 
-    const hostReplacement = eventPayload<Array<{ sessionPickId: string }>>(engine.sellPlayer('host', host.roomId, hostDrafted), 'showReplacementModal');
-    const guestReplacement = eventPayload<Array<{ sessionPickId: string }>>(engine.sellPlayer('guest', host.roomId, guestDrafted), 'showReplacementModal');
-    const hostBought = eventPayload<{ team: Array<{ id: string; hidden: boolean; realName?: string }> }>(engine.pickReplacement('host', host.roomId, hostReplacement[0]!.sessionPickId), 'updateMyData');
-    const guestBought = eventPayload<{ team: Array<{ id: string }> }>(engine.pickReplacement('guest', host.roomId, guestReplacement[0]!.sessionPickId), 'updateMyData');
+    const hostReplacement = eventPayload<{ season: string; pool: Array<{ sessionPickId: string }> }>(engine.sellPlayer('host', host.roomId, hostDrafted), 'showReplacementModal');
+    const guestReplacement = eventPayload<{ season: string; pool: Array<{ sessionPickId: string }> }>(engine.sellPlayer('guest', host.roomId, guestDrafted), 'showReplacementModal');
+    const hostBought = eventPayload<{ team: Array<{ id: string; hidden: boolean; realName?: string; boughtInSeason?: string; purchasePrice?: number; historicalValue: number }> }>(engine.pickReplacement('host', host.roomId, hostReplacement.pool[0]!.sessionPickId), 'updateMyData');
+    const guestBought = eventPayload<{ team: Array<{ id: string }> }>(engine.pickReplacement('guest', host.roomId, guestReplacement.pool[0]!.sessionPickId), 'updateMyData');
 
-    expect(hostBought.team[0]).toEqual(expect.objectContaining({ id: 'gk-new', hidden: true }));
+    expect(hostReplacement.season).toBe('2015/16');
+    expect(guestReplacement.season).toBe('2015/16');
+    expect(hostBought.team[0]).toEqual(expect.objectContaining({ hidden: true, boughtInSeason: '2015/16' }));
+    expect(hostBought.team[0]!.purchasePrice).toBe(hostBought.team[0]!.historicalValue);
     expect(hostBought.team[0]).not.toHaveProperty('realName');
-    expect(guestBought.team[0]?.id).toBe('gk-new');
-    expect(() => engine.sellPlayer('host', host.roomId, 'gk-new')).toThrow('nie można sprzedać');
+    expect(guestBought.team[0]?.id).toBe(hostBought.team[0]!.id);
+    expect(() => engine.sellPlayer('host', host.roomId, hostBought.team[0]!.id)).toThrow('nie można sprzedać');
     engine.setTransferReady('host', host.roomId);
     const closed = engine.setTransferReady('guest', host.roomId);
     expect(closed).toContainEqual(expect.objectContaining({ name: 'transferLog', socketId: 'host', payload: expect.objectContaining({ kind: 'reveal' }) }));

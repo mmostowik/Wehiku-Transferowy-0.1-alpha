@@ -130,7 +130,7 @@ export interface ServerToClientEvents {
   errorMsg: (message: string) => void;
   updateMyData: (player: PlayerView) => void;
   transferWindowOpen: (payload: TransferStatusPayload) => void;
-  showReplacementModal: (pool: MysteryCard[]) => void;
+  showReplacementModal: (payload: { season: string; pool: MysteryCard[] }) => void;
   closeReplacementDraft: () => void;
   transferLog: (payload: { message: string; kind: 'sale' | 'reveal' | 'system' }) => void;
   gamePaused: (payload: { playerName: string; reconnectDeadline: number }) => void;
