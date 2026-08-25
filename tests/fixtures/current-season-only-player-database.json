@@ -1,0 +1,21 @@
+{
+  "2025/26": {
+    "Goalkeeper": [
+      {
+        "id": "current-gk",
+        "realName": "Bieżący Bramkarz",
+        "stats": {
+          "age": 25,
+          "league": "LaLiga",
+          "minutesPlayed": 3100,
+          "yellowCards": 0
+        },
+        "historicalValue": 20000000,
+        "transferWindowValues": {
+          "2025/26": 20000000
+        },
+        "currentValue": 20000000
+      }
+    ]
+  }
+}

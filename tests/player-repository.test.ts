@@ -4,6 +4,7 @@ import type { PlayerCard } from '../src/shared/contracts';
 import { normalizeSeason, PlayerRepository, transferValue } from '../src/server/data/player-repository';
 
 const fixturePath = path.resolve('tests/fixtures/player-database.json');
+const currentSeasonOnlyFixturePath = path.resolve('tests/fixtures/current-season-only-player-database.json');
 
 describe('PlayerRepository', () => {
   it('normalizuje publiczną nazwę sezonu transferowego do klucza istniejącego w bazie', () => {
@@ -19,5 +20,12 @@ describe('PlayerRepository', () => {
   it('odczytuje wycenę transferową z faktycznego klucza 2025/26', () => {
     const card = { transferWindowValues: { '2025/26': 42 }, currentValue: 30, historicalValue: 20 } as PlayerCard;
     expect(transferValue(card)).toBe(42);
+  });
+
+  it('nie traktuje bieżącego sezonu jako historycznego, gdy baza nie zawiera starych sezonów', async () => {
+    const repository = await PlayerRepository.load(currentSeasonOnlyFixturePath);
+
+    expect(repository.draftSeasons).toEqual([]);
+    expect(() => repository.randomSeason(() => 0)).toThrow('historycznych sezonów');
   });
 });

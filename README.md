@@ -1,6 +1,6 @@
 # Wehikuł Transferowy
 
-Aktualna wersja: **0.2.0-alpha.2**.
+Źródłem numeru wersji projektu jest [`package.json`](package.json); Vite automatycznie wstawia go do interfejsu podczas uruchamiania i budowania aplikacji.
 
 Wieloosobowa, przeglądarkowa gra draftowa o budowaniu najcenniejszego składu piłkarskiego. Gracze wybierają ukryte karty z sezonów historycznych, handlują nimi w oknach transferowych 2025/2026, wybierają kapitana i rywalizują wartością końcową zespołu.
 

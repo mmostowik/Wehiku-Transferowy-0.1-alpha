@@ -66,7 +66,7 @@ export class PlayerRepository {
       const year = seasonStart(season);
       return year >= 2015 && year <= 2024;
     });
-    return new PlayerRepository(database, draftSeasons.length ? draftSeasons : allSeasons, removedEntries);
+    return new PlayerRepository(database, draftSeasons, removedEntries);
   }
 
   get hasPlayers(): boolean {
@@ -77,7 +77,7 @@ export class PlayerRepository {
 
   randomSeason(random: Random = Math.random): string {
     const season = this.draftSeasons[Math.floor(random() * this.draftSeasons.length)];
-    if (!season) throw new Error('Baza danych nie zawiera sezonów draftu.');
+    if (!season) throw new Error('Baza danych nie zawiera historycznych sezonów draftu.');
     return season;
   }
 

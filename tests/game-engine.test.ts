@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { PlayerView, ReplacementMarketPayload } from '../src/shared/contracts';
 import { PlayerRepository } from '../src/server/data/player-repository';
 import { GameEngine, type GameEvent } from '../src/server/domain/game-engine';
 
@@ -105,20 +106,27 @@ describe('GameEngine gameplay safeguards', () => {
     engine.skipPick('guest', host.roomId);
 
     const sold = engine.sellPlayer('host', host.roomId, hiddenPlayer.team[0]!.id);
-    const replacement = eventPayload<{ season: string; pool: Array<Record<string, unknown>> }>(sold, 'showReplacementModal');
+    const replacement = eventPayload<ReplacementMarketPayload>(sold, 'showReplacementModal');
     expect(replacement.season).toBe('2015/16');
     expect(JSON.stringify(replacement.pool)).not.toContain('Bramkarz');
     expect(replacement.pool[0]).not.toHaveProperty('realName');
     expect(() => engine.setTransferReady('host', host.roomId)).toThrow('Najpierw wybierz zastępcę');
-    expect(engine.declineReplacement('host', host.roomId)).toContainEqual(expect.objectContaining({ name: 'closeReplacementDraft' }));
 
-    const firstReady = engine.setTransferReady('host', host.roomId);
+    engine.disconnect('host');
+    const resumed = engine.resumeGame('host-new', host.roomId, host.resumeToken);
+    const transferIndex = resumed.findIndex((event) => event.name === 'transferWindowOpen');
+    const replacementIndex = resumed.findIndex((event) => event.name === 'showReplacementModal');
+    expect(transferIndex).toBeGreaterThanOrEqual(0);
+    expect(replacementIndex).toBeGreaterThan(transferIndex);
+    expect(engine.declineReplacement('host-new', host.roomId)).toContainEqual(expect.objectContaining({ name: 'closeReplacementDraft' }));
+
+    const firstReady = engine.setTransferReady('host-new', host.roomId);
     expect(firstReady.some((event) => event.name === 'newTurn')).toBe(false);
     expect(() => engine.setTransferReady('guest', host.roomId)).not.toThrow();
     expect(host.playerId).not.toBe(guest.playerId);
   });
 
-  it('pozwala różnym graczom kupić tego samego zastępcę, ale blokuje jego ponowną sprzedaż w tym oknie', () => {
+  it('prowadzi niezależne rynki graczy, wyklucza sprzedane karty i blokuje ponowną sprzedaż w tym oknie', () => {
     const host = joinData(engine.createRoom('host', 'Host'));
     engine.joinRoom('guest', host.roomId, 'Gość');
     const started = engine.startGame('host', host.roomId, 'fast');
@@ -133,17 +141,18 @@ describe('GameEngine gameplay safeguards', () => {
     engine.skipPick('host', host.roomId);
     engine.skipPick('guest', host.roomId);
 
-    const hostReplacement = eventPayload<{ season: string; pool: Array<{ sessionPickId: string }> }>(engine.sellPlayer('host', host.roomId, hostDrafted), 'showReplacementModal');
-    const guestReplacement = eventPayload<{ season: string; pool: Array<{ sessionPickId: string }> }>(engine.sellPlayer('guest', host.roomId, guestDrafted), 'showReplacementModal');
-    const hostBought = eventPayload<{ team: Array<{ id: string; hidden: boolean; realName?: string; boughtInSeason?: string; purchasePrice?: number; historicalValue: number }> }>(engine.pickReplacement('host', host.roomId, hostReplacement.pool[0]!.sessionPickId), 'updateMyData');
-    const guestBought = eventPayload<{ team: Array<{ id: string }> }>(engine.pickReplacement('guest', host.roomId, guestReplacement.pool[0]!.sessionPickId), 'updateMyData');
+    const hostReplacement = eventPayload<ReplacementMarketPayload>(engine.sellPlayer('host', host.roomId, hostDrafted), 'showReplacementModal');
+    const guestReplacement = eventPayload<ReplacementMarketPayload>(engine.sellPlayer('guest', host.roomId, guestDrafted), 'showReplacementModal');
+    const hostBought = eventPayload<PlayerView>(engine.pickReplacement('host', host.roomId, hostReplacement.pool[0]!.sessionPickId), 'updateMyData');
+    const guestBought = eventPayload<PlayerView>(engine.pickReplacement('guest', host.roomId, guestReplacement.pool[0]!.sessionPickId), 'updateMyData');
 
     expect(hostReplacement.season).toBe('2015/16');
     expect(guestReplacement.season).toBe('2015/16');
     expect(hostBought.team[0]).toEqual(expect.objectContaining({ hidden: true, boughtInSeason: '2015/16' }));
+    expect(hostBought.team[0]!.id).not.toBe(hostDrafted);
     expect(hostBought.team[0]!.purchasePrice).toBe(hostBought.team[0]!.historicalValue);
     expect(hostBought.team[0]).not.toHaveProperty('realName');
-    expect(guestBought.team[0]?.id).toBe(hostBought.team[0]!.id);
+    expect(guestBought.team[0]?.id).not.toBe(guestDrafted);
     expect(() => engine.sellPlayer('host', host.roomId, hostBought.team[0]!.id)).toThrow('nie można sprzedać');
     engine.setTransferReady('host', host.roomId);
     const closed = engine.setTransferReady('guest', host.roomId);

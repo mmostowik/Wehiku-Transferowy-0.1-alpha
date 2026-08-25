@@ -1,6 +1,7 @@
 import type {
   GameModeKey, GamePlayer, LobbyPlayer, MysteryCard, OwnedCardView, PlayerCard,
-  PlayerView, PositionCode, RoomState, RoomSummary, StatKey, TransferStatusPayload,
+  PlayerView, PositionCode, ReplacementMarketPayload, RoomState, RoomSummary, StatKey,
+  TransferStatusPayload,
 } from '../../shared/contracts.js';
 import { GAME_MODES, POSITION_MAP, TRANSFER_SEASON_DISPLAY } from '../config/game.js';
 import { PlayerRepository, transferValue } from '../data/player-repository.js';
@@ -26,6 +27,12 @@ interface RoomPlayer extends Omit<GamePlayer, 'team'> {
   reconnectDeadline?: number;
 }
 
+interface ReplacementMarket {
+  pool: PlayerCard[];
+  position: PositionCode;
+  season: string;
+}
+
 interface Room {
   id: string;
   hostPlayerId: string;
@@ -40,9 +47,7 @@ interface Room {
   totalRounds?: number;
   currentSeason?: string;
   pool: PlayerCard[];
-  replacementPools: Map<string, PlayerCard[]>;
-  replacementPositions: Map<string, PositionCode>;
-  replacementSeasons: Map<string, string>;
+  replacementMarkets: Map<string, ReplacementMarket>;
   readyPlayerIds: Set<string>;
   captainSelections: Set<string>;
   currentActiveStats: StatKey[];
@@ -79,9 +84,7 @@ export class GameEngine {
       isReverseTurn: false,
       defaultBudget: 250_000_000,
       pool: [],
-      replacementPools: new Map(),
-      replacementPositions: new Map(),
-      replacementSeasons: new Map(),
+      replacementMarkets: new Map(),
       readyPlayerIds: new Set(),
       captainSelections: new Set(),
       currentActiveStats: [],
@@ -114,10 +117,10 @@ export class GameEngine {
       this.joinSuccessEvent(room, player, true),
       this.playerDataEvent(room, player),
     ];
-    if (room.state === 'transfer' && room.replacementPools.has(player.id)) {
-      events.push(this.replacementModalEvent(room, player));
+    if (this.isPaused(room)) {
+      if (room.state === 'transfer' && room.replacementMarkets.has(player.id)) events.push(this.replacementModalEvent(room, player));
+      return events;
     }
-    if (this.isPaused(room)) return events;
 
     events.push({ target: 'room', roomId, name: 'gameResumed', payload: { message: `${player.username} wrócił do gry.` } });
     events.push(...this.stateEvents(room));
@@ -175,7 +178,7 @@ export class GameEngine {
     const room = this.requirePlayableState(roomId, 'transfer');
     const player = this.requirePlayer(room, socketId);
     if (room.readyPlayerIds.has(player.id)) throw new GameError('Jesteś już gotowy.');
-    if (room.replacementPools.has(player.id)) throw new GameError('Najpierw zakończ obecny wybór zastępcy.');
+    if (room.replacementMarkets.has(player.id)) throw new GameError('Najpierw zakończ obecny wybór zastępcy.');
     const cardIndex = player.team.findIndex((card) => card.id === playerId);
     if (cardIndex < 0) throw new GameError('Nie znaleziono zawodnika w Twoim składzie.');
     const card = player.team[cardIndex]!;
@@ -188,12 +191,10 @@ export class GameEngine {
     player.team.splice(cardIndex, 1);
 
     const position = card.assignedPosition ?? 'CM';
-    const excluded = new Set(player.team.map((candidate) => candidate.id));
+    const excluded = new Set([...player.team.map((candidate) => candidate.id), card.id]);
     
     const { season: replacementSeason, pool } = this.drawHistoricalReplacement(position, excluded);
-    room.replacementPools.set(player.id, pool);
-    room.replacementPositions.set(player.id, position);
-    room.replacementSeasons.set(player.id, replacementSeason);
+    room.replacementMarkets.set(player.id, { pool, position, season: replacementSeason });
     return [
       { target: 'room', roomId, name: 'transferLog', payload: { message: `${player.username} sprzedał ${card.realName} za ${(newPrice / 1_000_000).toFixed(1)} mln € (zysk: ${(profit / 1_000_000).toFixed(1)} mln €).`, kind: 'sale' } },
       this.playerDataEvent(room, player),
@@ -204,17 +205,16 @@ export class GameEngine {
   pickReplacement(socketId: string, roomId: string, sessionPickId: string): GameEvent[] {
     const room = this.requirePlayableState(roomId, 'transfer');
     const player = this.requirePlayer(room, socketId);
-    const pool = room.replacementPools.get(player.id) ?? [];
-    const card = pool.find((candidate) => candidate.sessionPickId === sessionPickId);
+    const market = this.requireReplacementMarket(room, player.id);
+    const card = market.pool.find((candidate) => candidate.sessionPickId === sessionPickId);
     if (!card) throw new GameError('Ta karta zastępcza nie jest już dostępna.');
-    const replacementSeason = this.requireReplacementSeason(room, player.id);
     const price = card.historicalValue;
     if (player.budget < price) throw new GameError('Brak budżetu na tego zawodnika!');
     player.budget -= price;
     player.team.push({
       ...card,
-      boughtInSeason: replacementSeason,
-      assignedPosition: room.replacementPositions.get(player.id) ?? 'CM',
+      boughtInSeason: market.season,
+      assignedPosition: market.position,
       purchasePrice: price,
       acquiredInTransferRound: room.currentRound,
     });
@@ -225,7 +225,7 @@ export class GameEngine {
   declineReplacement(socketId: string, roomId: string): GameEvent[] {
     const room = this.requirePlayableState(roomId, 'transfer');
     const player = this.requirePlayer(room, socketId);
-    if (!room.replacementPools.has(player.id)) throw new GameError('Nie masz otwartego rynku zastępczego.');
+    if (!room.replacementMarkets.has(player.id)) throw new GameError('Nie masz otwartego rynku zastępczego.');
     this.clearReplacement(room, player.id);
     return [{ target: 'socket', socketId, name: 'closeReplacementDraft' }];
   }
@@ -233,7 +233,7 @@ export class GameEngine {
   setTransferReady(socketId: string, roomId: string): GameEvent[] {
     const room = this.requirePlayableState(roomId, 'transfer');
     const player = this.requirePlayer(room, socketId);
-    if (room.replacementPools.has(player.id)) throw new GameError('Najpierw wybierz zastępcę albo z niego zrezygnuj.');
+    if (room.replacementMarkets.has(player.id)) throw new GameError('Najpierw wybierz zastępcę albo z niego zrezygnuj.');
     room.readyPlayerIds.add(player.id);
     const status = this.transferStatusEvent(room);
     const events = [this.playerDataEvent(room, player), status];
@@ -358,9 +358,7 @@ export class GameEngine {
     room.state = 'transfer';
     room.currentSeason = TRANSFER_SEASON_DISPLAY;
     room.readyPlayerIds.clear();
-    room.replacementPools.clear();
-    room.replacementPositions.clear();
-    room.replacementSeasons.clear();
+    room.replacementMarkets.clear();
     return [...room.players.flatMap((player) => player.socketId ? [this.playerDataEvent(room, player)] : []), this.transferStatusEvent(room)];
   }
 
@@ -398,7 +396,13 @@ export class GameEngine {
   private stateEvents(room: Room): GameEvent[] {
     if (room.state === 'lobby') return this.lobbyEvents(room);
     if (room.state === 'draft') return [this.turnEvent(room)];
-    if (room.state === 'transfer') return [...room.players.flatMap((player) => player.socketId ? [this.playerDataEvent(room, player)] : []), this.transferStatusEvent(room)];
+    if (room.state === 'transfer') {
+      return [
+        ...room.players.flatMap((player) => player.socketId ? [this.playerDataEvent(room, player)] : []),
+        this.transferStatusEvent(room),
+        ...room.players.flatMap((player) => player.socketId && room.replacementMarkets.has(player.id) ? [this.replacementModalEvent(room, player)] : []),
+      ];
+    }
     if (room.state === 'captain') return [{ target: 'room', roomId: room.id, name: 'startCaptainSelection', payload: { players: room.players.map((player) => this.playerView(room, player, true)) } }];
     return [];
   }
@@ -446,16 +450,18 @@ export class GameEngine {
   }
 
   private replacementModalEvent(room: Room, player: RoomPlayer): GameEvent {
-    const position = room.replacementPositions.get(player.id) ?? 'CM';
-    const defensive = ['GK', 'CB', 'FB'].includes(position);
+    const market = this.requireReplacementMarket(room, player.id);
+    const defensive = ['GK', 'CB', 'FB'].includes(market.position);
     const stats: StatKey[] = defensive ? ['minutesPlayed', 'yellowCards'] : ['goals', 'assists', 'minutesPlayed'];
-    const pool = (room.replacementPools.get(player.id) ?? []).map((card) => this.mysteryCard(card, card.historicalValue, stats));
-    const season = this.requireReplacementSeason(room, player.id);
+    const payload: ReplacementMarketPayload = {
+      season: market.season,
+      pool: market.pool.map((card) => this.mysteryCard(card, card.historicalValue, stats)),
+    };
     return {
       target: 'socket',
       socketId: player.socketId!,
       name: 'showReplacementModal',
-      payload: { season, pool },
+      payload,
     };
   }
 
@@ -567,24 +573,20 @@ export class GameEngine {
   private removePlayer(room: Room, playerId: string): void {
     const index = room.players.findIndex((player) => player.id === playerId);
     if (index >= 0) room.players.splice(index, 1);
-    room.replacementPools.delete(playerId);
-    room.replacementPositions.delete(playerId);
-    room.replacementSeasons.delete(playerId);
+    room.replacementMarkets.delete(playerId);
     room.readyPlayerIds.delete(playerId);
     room.captainSelections.delete(playerId);
     this.advancePastMissingPlayers(room);
   }
 
   private clearReplacement(room: Room, playerId: string): void {
-    room.replacementPools.delete(playerId);
-    room.replacementPositions.delete(playerId);
-    room.replacementSeasons.delete(playerId);
+    room.replacementMarkets.delete(playerId);
   }
 
-  private requireReplacementSeason(room: Room, playerId: string): string {
-    const season = room.replacementSeasons.get(playerId);
-    if (!season) throw new GameError('Nie można ustalić sezonu rynku zastępczego.');
-    return season;
+  private requireReplacementMarket(room: Room, playerId: string): ReplacementMarket {
+    const market = room.replacementMarkets.get(playerId);
+    if (!market) throw new GameError('Nie masz otwartego rynku zastępczego.');
+    return market;
   }
 
   private isPaused(room: Room): boolean {
