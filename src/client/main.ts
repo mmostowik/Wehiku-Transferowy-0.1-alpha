@@ -71,7 +71,7 @@ socket.on('newTurn', (turn) => {
 });
 socket.on('updateMyData', updatePlayer);
 socket.on('transferWindowOpen', ({ season, readyPlayerIds, totalPlayers }) => {
-  hide(ui.draft, ui.captain, ui.replacement);
+  hide(ui.draft, ui.captain);
   show(ui.game, ui.transfer);
   ui.transferSeason.textContent = season;
   state.ready = readyPlayerIds.includes(state.playerId);

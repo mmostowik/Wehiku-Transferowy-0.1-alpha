@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <title>Wehikuł Transferowy 0.2.0-alpha.2</title>
+    <title>Wehikuł Transferowy %APP_VERSION%</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet" />
@@ -13,7 +13,7 @@
   <body class="flex min-h-screen flex-col bg-[linear-gradient(135deg,#0f2027,#203a43,#2c5364)] bg-fixed p-5 text-center font-poppins text-white">
     <div class="flex-1">
       <button id="tutorialOpenBtn" class="absolute top-5 right-5 z-10 cursor-pointer rounded-[20px] border border-[#777] bg-[#333] px-[15px] py-2 text-sm font-bold text-white uppercase shadow-none transition-all duration-300 hover:scale-105">Jak grać?</button>
-      <h1 class="mb-[30px] text-[2.5em] font-black text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">Wehikuł Transferowy <span class="align-middle text-[0.4em] text-[#aaa]">0.2.0-alpha.2</span></h1>
+      <h1 class="mb-[30px] text-[2.5em] font-black text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">Wehikuł Transferowy <span class="align-middle text-[0.4em] text-[#aaa]">%APP_VERSION%</span></h1>
 
       <div id="login" class="mx-auto max-w-[500px] rounded-[20px] border border-white/10 bg-white/5 p-10 shadow-[0_8px_32px_rgba(0,0,0,0.37)] backdrop-blur-[10px]">
         <h2 class="font-bold text-brand">Wybierz swój Nick</h2>
@@ -95,7 +95,7 @@
       </div>
     </div>
 
-    <footer class="mt-auto pt-10 pb-2.5 text-center text-[0.85em] text-[#888]">Wehikuł Transferowy v0.2.0-alpha.2 | Stworzone przez: Mateusz Mostowik</footer>
+    <footer class="mt-auto pt-10 pb-2.5 text-center text-[0.85em] text-[#888]">Wehikuł Transferowy v%APP_VERSION% | Stworzone przez: Mateusz Mostowik</footer>
     <aside id="transferLog" class="fixed right-5 bottom-5 z-50 flex w-[min(360px,calc(100vw-40px))] flex-col gap-2 text-left" aria-live="polite"></aside>
     <div id="pauseBanner" class="hidden fixed inset-x-5 top-5 z-60 mx-auto max-w-[700px] rounded-[15px] border border-accent bg-[#222] p-4 text-accent shadow-xl" role="status"></div>
     <div id="disconnectDecision" class="hidden fixed inset-0 z-1000 flex items-center justify-center bg-black/70 p-5">

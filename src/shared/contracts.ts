@@ -107,6 +107,11 @@ export interface TransferStatusPayload {
   totalPlayers: number;
 }
 
+export interface ReplacementMarketPayload {
+  season: string;
+  pool: MysteryCard[];
+}
+
 export interface ClientToServerEvents {
   createRoom: (username: string) => void;
   joinRoom: (payload: { roomId: string; username: string }) => void;
@@ -130,7 +135,7 @@ export interface ServerToClientEvents {
   errorMsg: (message: string) => void;
   updateMyData: (player: PlayerView) => void;
   transferWindowOpen: (payload: TransferStatusPayload) => void;
-  showReplacementModal: (payload: { season: string; pool: MysteryCard[] }) => void;
+  showReplacementModal: (payload: ReplacementMarketPayload) => void;
   closeReplacementDraft: () => void;
   transferLog: (payload: { message: string; kind: 'sale' | 'reveal' | 'system' }) => void;
   gamePaused: (payload: { playerName: string; reconnectDeadline: number }) => void;
