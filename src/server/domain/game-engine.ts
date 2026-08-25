@@ -42,6 +42,7 @@ interface Room {
   pool: PlayerCard[];
   replacementPools: Map<string, PlayerCard[]>;
   replacementPositions: Map<string, PositionCode>;
+  replacementSeasons: Map<string, string>;
   readyPlayerIds: Set<string>;
   captainSelections: Set<string>;
   currentActiveStats: StatKey[];
@@ -80,6 +81,7 @@ export class GameEngine {
       pool: [],
       replacementPools: new Map(),
       replacementPositions: new Map(),
+      replacementSeasons: new Map(),
       readyPlayerIds: new Set(),
       captainSelections: new Set(),
       currentActiveStats: [],
@@ -188,12 +190,10 @@ export class GameEngine {
     const position = card.assignedPosition ?? 'CM';
     const excluded = new Set(player.team.map((candidate) => candidate.id));
     
-    // Losowanie archiwalnego sezonu dla puli zastępców
-    const replacementSeason = this.players.randomSeason(this.random);
-    const pool = this.players.draw(replacementSeason, POSITION_MAP[position], 5, excluded, this.random);
-    
+    const { season: replacementSeason, pool } = this.drawHistoricalReplacement(position, excluded);
     room.replacementPools.set(player.id, pool);
     room.replacementPositions.set(player.id, position);
+    room.replacementSeasons.set(player.id, replacementSeason);
     return [
       { target: 'room', roomId, name: 'transferLog', payload: { message: `${player.username} sprzedał ${card.realName} za ${(newPrice / 1_000_000).toFixed(1)} mln € (zysk: ${(profit / 1_000_000).toFixed(1)} mln €).`, kind: 'sale' } },
       this.playerDataEvent(room, player),
@@ -207,12 +207,13 @@ export class GameEngine {
     const pool = room.replacementPools.get(player.id) ?? [];
     const card = pool.find((candidate) => candidate.sessionPickId === sessionPickId);
     if (!card) throw new GameError('Ta karta zastępcza nie jest już dostępna.');
-    const price = transferValue(card);
+    const replacementSeason = this.requireReplacementSeason(room, player.id);
+    const price = card.historicalValue;
     if (player.budget < price) throw new GameError('Brak budżetu na tego zawodnika!');
     player.budget -= price;
     player.team.push({
       ...card,
-      boughtInSeason: TRANSFER_SEASON_DISPLAY,
+      boughtInSeason: replacementSeason,
       assignedPosition: room.replacementPositions.get(player.id) ?? 'CM',
       purchasePrice: price,
       acquiredInTransferRound: room.currentRound,
@@ -359,6 +360,7 @@ export class GameEngine {
     room.readyPlayerIds.clear();
     room.replacementPools.clear();
     room.replacementPositions.clear();
+    room.replacementSeasons.clear();
     return [...room.players.flatMap((player) => player.socketId ? [this.playerDataEvent(room, player)] : []), this.transferStatusEvent(room)];
   }
 
@@ -447,8 +449,24 @@ export class GameEngine {
     const position = room.replacementPositions.get(player.id) ?? 'CM';
     const defensive = ['GK', 'CB', 'FB'].includes(position);
     const stats: StatKey[] = defensive ? ['minutesPlayed', 'yellowCards'] : ['goals', 'assists', 'minutesPlayed'];
-    const pool = (room.replacementPools.get(player.id) ?? []).map((card) => this.mysteryCard(card, transferValue(card), stats));
-    return { target: 'socket', socketId: player.socketId!, name: 'showReplacementModal', payload: pool };
+    const pool = (room.replacementPools.get(player.id) ?? []).map((card) => this.mysteryCard(card, card.historicalValue, stats));
+    const season = this.requireReplacementSeason(room, player.id);
+    return {
+      target: 'socket',
+      socketId: player.socketId!,
+      name: 'showReplacementModal',
+      payload: { season, pool },
+    };
+  }
+
+  private drawHistoricalReplacement(position: PositionCode, excluded: ReadonlySet<string>): { season: string; pool: PlayerCard[] } {
+    const firstSeason = this.players.randomSeason(this.random);
+    const seasons = [firstSeason, ...this.players.draftSeasons.filter((season) => season !== firstSeason)];
+    for (const season of seasons) {
+      const pool = this.players.draw(season, POSITION_MAP[position], 5, excluded, this.random);
+      if (pool.length) return { season, pool };
+    }
+    return { season: firstSeason, pool: [] };
   }
 
   private mysteryCard(card: PlayerCard, price: number, stats: StatKey[]): MysteryCard {
@@ -551,6 +569,7 @@ export class GameEngine {
     if (index >= 0) room.players.splice(index, 1);
     room.replacementPools.delete(playerId);
     room.replacementPositions.delete(playerId);
+    room.replacementSeasons.delete(playerId);
     room.readyPlayerIds.delete(playerId);
     room.captainSelections.delete(playerId);
     this.advancePastMissingPlayers(room);
@@ -559,6 +578,13 @@ export class GameEngine {
   private clearReplacement(room: Room, playerId: string): void {
     room.replacementPools.delete(playerId);
     room.replacementPositions.delete(playerId);
+    room.replacementSeasons.delete(playerId);
+  }
+
+  private requireReplacementSeason(room: Room, playerId: string): string {
+    const season = room.replacementSeasons.get(playerId);
+    if (!season) throw new GameError('Nie można ustalić sezonu rynku zastępczego.');
+    return season;
   }
 
   private isPaused(room: Room): boolean {
